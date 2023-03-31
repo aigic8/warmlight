@@ -51,7 +51,7 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 		r, err = h.reactNewUser(user, update)
 	case update.Message.Text == "/start":
 		r, err = h.reactAlreadyJoinedStart(user, update)
-	case user.State == "normal":
+	default:
 		r, err = h.reactStateNormal(user, update)
 	}
 
