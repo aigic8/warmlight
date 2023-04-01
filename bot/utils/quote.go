@@ -12,7 +12,6 @@ type Quote struct {
 	Tags       []string
 }
 
-// TODO maybe test?
 func ParseQuote(text string) (*Quote, error) {
 	lines := strings.Split(text, "\n")
 	q := Quote{}
