@@ -1,10 +1,12 @@
 package db
 
 import (
+	"database/sql"
 	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var ErrNotFound = gorm.ErrRecordNotFound
@@ -15,19 +17,23 @@ type DB struct {
 
 type (
 	User struct {
-		ID        uint `gorm:"primaryKey"`
-		Quotes    []Quote
-		Sources   []Source
-		Tags      []Tag
-		FirstName string    `gorm:"not null"`
-		CreatedAt time.Time `gorm:"autoCreateTime"`
-		UpdatedAt time.Time `gorm:"autoUpdateTime"`
+		ID                 uint   `gorm:"primaryKey"`
+		ChatID             uint   `gorm:"not null"`
+		FirstName          string `gorm:"not null"`
+		ActiveSource       sql.NullString
+		ActiveSourceExpire sql.NullTime
+		Quotes             []Quote
+		Sources            []Source
+		Tags               []Tag
+		CreatedAt          time.Time `gorm:"autoCreateTime"`
+		UpdatedAt          time.Time `gorm:"autoUpdateTime"`
 	}
 
 	Quote struct {
 		gorm.Model
-		Text       string `gorm:"not null;uniqueIndex:idx_quote,priority:2"`
-		UserID     uint   `gorm:"not null;uniqueIndex:idx_quote,priority:1"`
+		Text   string `gorm:"not null;uniqueIndex:idx_quote,priority:2"`
+		UserID uint   `gorm:"not null;uniqueIndex:idx_quote,priority:1"`
+		// FIXME convert to sql.NullString
 		MainSource *string
 		Sources    []Source `gorm:"many2many:quote_source;"`
 		Tags       []Tag    `gorm:"many2many:quote_tag;"`
@@ -71,9 +77,9 @@ func (db *DB) GetUser(ID uint) (*User, error) {
 	return &user, nil
 }
 
-func (db *DB) GetOrCreateUser(ID uint, firstName string) (*User, bool, error) {
+func (db *DB) GetOrCreateUser(ID, ChatID uint, firstName string) (*User, bool, error) {
 	var user User
-	res := db.c.Where("ID = ?", ID).Attrs(&User{ID: ID, FirstName: firstName}).FirstOrCreate(&user)
+	res := db.c.Where("ID = ?", ID).Attrs(&User{ID: ID, ChatID: ChatID, FirstName: firstName}).FirstOrCreate(&user)
 	return &user, res.RowsAffected == 1, res.Error
 }
 
@@ -104,6 +110,50 @@ func (db *DB) CreateQuoteWithData(userID uint, text, mainSource string, tagNames
 	}
 
 	return &quote, nil
+}
+
+func (db *DB) CreateSource(userID uint, name string) (*Source, error) {
+	source := Source{UserID: userID, Name: name}
+	if err := db.c.Create(&source).Error; err != nil {
+		return nil, err
+	}
+	return &source, nil
+}
+
+func (db *DB) GetSource(userID uint, name string) (*Source, error) {
+	var res Source
+	if err := db.c.Where(&Source{UserID: userID, Name: name}).Take(&res).Error; err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+func (db *DB) SetActiveSource(userID uint, activeSourceStr string, activeSourceExpireTime time.Time) (bool, error) {
+	activeSource := sql.NullString{Valid: true, String: activeSourceStr}
+	activeSourceExpire := sql.NullTime{Valid: true, Time: activeSourceExpireTime}
+	res := User{ID: userID}
+	update := db.c.
+		Model(&res).
+		Updates(User{ActiveSource: activeSource, ActiveSourceExpire: activeSourceExpire})
+
+	return update.RowsAffected == 1, update.Error
+}
+
+// deactivate user sources with expired active source and returns users with valid `firstName`, `chatID` and `ID`
+func (db *DB) DeactivateExpiredSources() ([]User, error) {
+	var users []User
+	returningColumns := []clause.Column{{Name: "first_name"}, {Name: "chat_id"}, {Name: "id"}}
+	update := db.c.
+		Model(&users).
+		Clauses(clause.Returning{Columns: returningColumns}).
+		Where("active_source IS NOT NULL AND active_source_expire <= ?", time.Now()).
+		Updates(map[string]interface{}{"active_source": sql.NullString{}, "active_source_expire": sql.NullTime{}})
+	if err := update.Error; err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }
 
 func (db *DB) debugClean() error {

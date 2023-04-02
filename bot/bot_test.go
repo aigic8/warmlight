@@ -19,8 +19,9 @@ type reactNewUserTestCase struct {
 func TestReactNewUser(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
 	var userID uint = 1234
+	var chatID uint = 1
 	firstName := "aigic8"
-	user, _, err := DB.GetOrCreateUser(userID, firstName)
+	user, _, err := DB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}
@@ -46,8 +47,9 @@ func TestReactNewUser(t *testing.T) {
 func TestReactStateNormal(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
 	var userID uint = 1234
+	var chatID uint = 1
 	firstName := "aigic8"
-	user, _, err := DB.GetOrCreateUser(userID, firstName)
+	user, _, err := DB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}
@@ -76,6 +78,48 @@ func makeTestMessageUpdate(userID int64, firstName string, text string) *models.
 			},
 		},
 	}
+}
+
+type reactSetActiveSourceTestCase struct {
+	Name  string
+	Text  string
+	Reply string
+}
+
+func TestReactSetActiveSource(t *testing.T) {
+	DB := mustInitDB(TEST_DB_URL)
+	var userID uint = 1234
+	var chatID uint = 1
+	firstName := "aigic8"
+	user, _, err := DB.GetOrCreateUser(userID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := DB.CreateSource(userID, "The social animal"); err != nil {
+		panic(err)
+	}
+
+	h := Handlers{DB: DB}
+	testCases := []reactSetActiveSourceTestCase{
+		{Name: "normal", Text: "/setActiveSource The social animal, 20", Reply: strActiveSourceIsSet("The social animal", 20)},
+		{Name: "withoutTimeout", Text: "/setActiveSource The social animal", Reply: strActiveSourceIsSet("The social animal", DEFAULT_ACTIVE_SOURCE_TIMEOUT)},
+		{Name: "malformed", Text: "/setActiveSource The, social, animal", Reply: strMalformedSetActiveSource},
+		{Name: "empty", Text: "/setActiveSource", Reply: strMalformedSetActiveSource},
+		{Name: "sourceDoesNotExist", Text: "/setActiveSource Elliot Aronson", Reply: strSourceDoesExist("Elliot Aronson")},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			update := makeTestMessageUpdate(int64(userID), firstName, tc.Text)
+			r, err := h.reactSetActiveSource(user, update)
+
+			assert.Nil(t, err)
+			assert.Equal(t, 1, len(r.Messages))
+			assert.Equal(t, tc.Reply, r.Messages[0].Text)
+		})
+	}
+
 }
 
 func mustInitDB(URL string) *db.DB {
