@@ -231,10 +231,6 @@ func TestDBCreateQuoteWithData(t *testing.T) {
 		panic(err)
 	}
 
-	if err := db.debugClean(); err != nil {
-		panic(err)
-	}
-
 	q, err := db.CreateQuoteWithData(userID, text, mainSource, tags, sources)
 
 	sourceNames := make([]string, 0, len(q.Sources))
@@ -251,6 +247,195 @@ func TestDBCreateQuoteWithData(t *testing.T) {
 	assert.Equal(t, q.MainSource, &mainSource)
 	assert.ElementsMatch(t, sourceNames, sources)
 	assert.ElementsMatch(t, tagNames, tags)
+}
+
+func TestDBGetOrCreateOutputNormal(t *testing.T) {
+	DB := mustInitDB(TEST_DB_URL)
+	var userID uint = 1234
+	var userChatID uint = 1
+	var outputChatID uint = 10
+	outputChatTitle := "My quotes"
+
+	userFirstName := "aigic8"
+
+	_, _, err := DB.GetOrCreateUser(userID, userChatID, userFirstName)
+	if err != nil {
+		panic(err)
+	}
+
+	output, created, err := DB.GetOrCreateOutput(userID, outputChatID, outputChatTitle)
+	assert.Nil(t, err)
+	assert.True(t, created)
+	assert.Equal(t, outputChatID, output.ChatID)
+	assert.Equal(t, outputChatTitle, output.Title)
+	assert.False(t, output.IsActive)
+}
+
+func TestDBGetOrCreateOutputAlreadyCreated(t *testing.T) {
+	DB := mustInitDB(TEST_DB_URL)
+	var userID uint = 1234
+	var userChatID uint = 1
+	var outputChatID uint = 10
+	outputChatTitle := "My quotes"
+
+	userFirstName := "aigic8"
+
+	_, _, err := DB.GetOrCreateUser(userID, userChatID, userFirstName)
+	if err != nil {
+		panic(err)
+	}
+
+	_, created, err := DB.GetOrCreateOutput(userID, outputChatID, outputChatTitle)
+	if err != nil {
+		panic(err)
+	}
+
+	if created == false {
+		panic("output should be created in the first time")
+	}
+
+	_, created2, err := DB.GetOrCreateOutput(userID, outputChatID, outputChatTitle)
+	assert.Nil(t, err)
+	assert.False(t, created2)
+}
+
+func TestDBGetOutputNormal(t *testing.T) {
+	DB := mustInitDB(TEST_DB_URL)
+	var userID uint = 1234
+	var userChatID uint = 1
+	var outputChatID uint = 10
+	outputChatTitle := "My quotes"
+
+	userFirstName := "aigic8"
+
+	_, _, err := DB.GetOrCreateUser(userID, userChatID, userFirstName)
+	if err != nil {
+		panic(err)
+	}
+
+	_, created, err := DB.GetOrCreateOutput(userID, outputChatID, outputChatTitle)
+	if err != nil {
+		panic(err)
+	}
+
+	if created == false {
+		panic("output should be created in the first time")
+	}
+
+	output, err := DB.GetOutput(userID, outputChatTitle)
+	assert.Nil(t, err)
+	assert.Equal(t, outputChatID, output.ChatID)
+	assert.Equal(t, outputChatTitle, output.Title)
+}
+
+func TestDBSetOutputActiveNormal(t *testing.T) {
+	DB := mustInitDB(TEST_DB_URL)
+	var userID uint = 1234
+	var userChatID uint = 1
+	var outputChatID uint = 10
+	outputChatTitle := "My quotes"
+
+	userFirstName := "aigic8"
+
+	_, _, err := DB.GetOrCreateUser(userID, userChatID, userFirstName)
+	if err != nil {
+		panic(err)
+	}
+
+	_, created, err := DB.GetOrCreateOutput(userID, outputChatID, outputChatTitle)
+	if err != nil {
+		panic(err)
+	}
+
+	if created == false {
+		panic("output should be created in the first time")
+	}
+
+	err = DB.SetOutputActive(userID, outputChatTitle)
+	assert.Nil(t, err)
+
+	output, err := DB.GetOutput(userID, outputChatTitle)
+	assert.Nil(t, err)
+	assert.Equal(t, outputChatID, output.ChatID)
+	assert.Equal(t, outputChatTitle, output.Title)
+	assert.True(t, output.IsActive)
+}
+
+func TestDBDeleteOutputNormal(t *testing.T) {
+	DB := mustInitDB(TEST_DB_URL)
+	var userID uint = 1234
+	var userChatID uint = 1
+	var outputChatID uint = 10
+	outputChatTitle := "My quotes"
+
+	userFirstName := "aigic8"
+
+	_, _, err := DB.GetOrCreateUser(userID, userChatID, userFirstName)
+	if err != nil {
+		panic(err)
+	}
+
+	_, created, err := DB.GetOrCreateOutput(userID, outputChatID, outputChatTitle)
+	if err != nil {
+		panic(err)
+	}
+
+	if created == false {
+		panic("output should be created in the first time")
+	}
+
+	err = DB.DeleteOutput(userID, outputChatTitle)
+	assert.Nil(t, err)
+
+	_, err = DB.GetOutput(userID, outputChatTitle)
+	assert.NotNil(t, err)
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestDBDeleteOutputNotExist(t *testing.T) {
+	DB := mustInitDB(TEST_DB_URL)
+	var userID uint = 1234
+	var userChatID uint = 1
+	outputChatTitle := "My quotes"
+
+	userFirstName := "aigic8"
+
+	_, _, err := DB.GetOrCreateUser(userID, userChatID, userFirstName)
+	if err != nil {
+		panic(err)
+	}
+	err = DB.DeleteOutput(userID, outputChatTitle)
+	assert.Nil(t, err)
+}
+
+func TestDBGetOutputs(t *testing.T) {
+	DB := mustInitDB(TEST_DB_URL)
+	var userID uint = 1234
+	var userChatID uint = 1
+	var outputChatID uint = 10
+	outputChatTitle := "My quotes"
+
+	userFirstName := "aigic8"
+
+	_, _, err := DB.GetOrCreateUser(userID, userChatID, userFirstName)
+	if err != nil {
+		panic(err)
+	}
+
+	_, created, err := DB.GetOrCreateOutput(userID, outputChatID, outputChatTitle)
+	if err != nil {
+		panic(err)
+	}
+
+	if created == false {
+		panic("output should be created in the first time")
+	}
+
+	outputs, err := DB.GetOutputs(userID)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(outputs))
+	assert.Equal(t, outputChatID, outputs[0].ChatID)
+	assert.Equal(t, outputChatTitle, outputs[0].Title)
 }
 
 func mustInitDB(URL string) *DB {

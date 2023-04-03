@@ -20,6 +20,11 @@ import (
 const DEFAULT_ACTIVE_SOURCE_TIMEOUT = 60
 const DEACTIVATOR_INTERVAL_MINS = 10
 
+// FIXME use uint64 instead of uint for chatID and userIDs
+// FIXME use const values for command names (configurable)
+
+// TODO add support for filtering HASHTAGS and SOURCES for different outputs
+
 func NewBot(DB *db.DB, token string) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
@@ -48,6 +53,12 @@ type Handlers struct {
 }
 
 func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+	// TODO support groups
+	if update.MyChatMember != nil {
+		if _, err := h.reactMyChatMember(update); err != nil {
+			logErr(err)
+		}
+	}
 	if update.Message == nil || update.Message.From == nil || update.Message.From.IsBot {
 		return
 	}
@@ -70,8 +81,10 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 		r, err = h.reactAlreadyJoinedStart(user, update)
 	case strings.HasPrefix(update.Message.Text, "/setActiveSource"):
 		r, err = h.reactSetActiveSource(user, update)
+	case strings.HasPrefix(update.Message.Text, "/addOutput"):
+		r, err = h.reactAddOutput(user, update)
 	default:
-		r, err = h.reactStateNormal(user, update)
+		r, err = h.reactDefault(user, update)
 	}
 
 	if err != nil {
@@ -95,7 +108,9 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 
 /////////////////////// REACTIONS ////////////////////////////
 
-func (h Handlers) reactStateNormal(user *db.User, update *models.Update) (u.Reaction, error) {
+// TODO split reactions to multiple files
+func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction, error) {
+	// FIXME test reactDefault with outputs
 	q, err := u.ParseQuote(update.Message.Text)
 	if err != nil {
 		return u.Reaction{}, err
@@ -106,10 +121,27 @@ func (h Handlers) reactStateNormal(user *db.User, update *models.Update) (u.Reac
 		return u.Reaction{}, err
 	}
 
+	outputs, err := h.DB.GetOutputs(uint(update.Message.From.ID))
+	if err != nil {
+		return u.Reaction{
+			Messages: []bot.SendMessageParams{
+				u.TextReplyToMessage(update.Message, strQuoteAddedButFailedToPublish),
+			},
+		}, nil
+	}
+
+	messages := make([]bot.SendMessageParams, 0, len(outputs)+1)
+	messages = append(messages, u.TextReplyToMessage(update.Message, strQuoteAdded))
+	for _, output := range outputs {
+		messages = append(messages, bot.SendMessageParams{
+			ChatID:    output.ChatID,
+			ParseMode: models.ParseModeMarkdown,
+			Text:      strQuote(q),
+		})
+	}
+
 	return u.Reaction{
-		Messages: []bot.SendMessageParams{
-			u.TextReplyToMessage(update.Message, strQuoteAdded),
-		},
+		Messages: messages,
 	}, nil
 }
 
@@ -202,6 +234,69 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 			u.TextReplyToMessage(update.Message, strActiveSourceIsSet(args[0], activeSourceTimeoutInt)),
 		},
 	}, nil
+}
+
+func (h Handlers) reactAddOutput(user *db.User, update *models.Update) (u.Reaction, error) {
+	// TODO philosophy question: what to use to identify the output?
+	// some outputs might not have username and there is the possibility of two outputs having the same title
+	// How to fix this?
+	// 1. ask user to forward a message from the channel, that way we can have the chat ID
+	// 2. List all the channels from user with buttons and ask user to click the channel button
+	// FIXME handle output title change!
+	chatTitle := strings.TrimSpace(strings.TrimPrefix(update.Message.Text, "/addOutput"))
+	output, err := h.DB.GetOutput(user.ID, chatTitle)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return u.Reaction{
+				Messages: []bot.SendMessageParams{
+					u.TextReplyToMessage(update.Message, strOutputNotFound(chatTitle)),
+				},
+			}, nil
+		}
+		return u.Reaction{}, err
+	}
+
+	if output.IsActive {
+		return u.Reaction{
+			Messages: []bot.SendMessageParams{
+				u.TextReplyToMessage(update.Message, strOutputIsAlreadyActive(chatTitle)),
+			},
+		}, nil
+	}
+
+	if err := h.DB.SetOutputActive(user.ID, chatTitle); err != nil {
+		return u.Reaction{}, err
+	}
+
+	return u.Reaction{
+		Messages: []bot.SendMessageParams{
+			u.TextReplyToMessage(update.Message, strOutputIsSet(chatTitle)),
+		},
+	}, nil
+}
+
+func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
+	// FIXME test reactMyChatMemeber
+	chat := update.MyChatMember.Chat
+	from := update.MyChatMember.From
+	// TODO support groups
+	if chat.Type != "channel" {
+		return u.Reaction{}, nil
+	}
+
+	adminChatMemeber := update.MyChatMember.NewChatMember.Administrator
+	ownerChatMember := update.MyChatMember.NewChatMember.Owner
+	if (adminChatMemeber != nil && adminChatMemeber.CanPostMessages) || ownerChatMember != nil {
+		if _, _, err := h.DB.GetOrCreateOutput(uint(from.ID), uint(chat.ID), chat.Title); err != nil {
+			return u.Reaction{}, err
+		}
+	} else {
+		if err := h.DB.DeleteOutput(uint(from.ID), chat.Title); err != nil {
+			return u.Reaction{}, err
+		}
+	}
+
+	return u.Reaction{}, nil
 }
 
 // TODO better logging errors!

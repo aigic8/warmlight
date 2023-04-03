@@ -53,6 +53,14 @@ type (
 		UserID uint    `gorm:"not null;uniqueIndex:idx_tag,priority:1"`
 		Quotes []Quote `gorm:"many2many:quote_tag;"`
 	}
+
+	Output struct {
+		gorm.Model
+		ChatID   uint   `gorm:"not null"`
+		UserID   uint   `gorm:"not null"`
+		Title    string `gorm:"not null"`
+		IsActive bool   `gorm:"default:false"`
+	}
 )
 
 func NewDB(URL string) (*DB, error) {
@@ -65,7 +73,7 @@ func NewDB(URL string) (*DB, error) {
 }
 
 func (db *DB) Init() error {
-	return db.c.AutoMigrate(&User{}, &Quote{}, &Source{}, &Tag{})
+	return db.c.AutoMigrate(&User{}, &Quote{}, &Source{}, &Tag{}, &Output{})
 }
 
 func (db *DB) GetUser(ID uint) (*User, error) {
@@ -156,22 +164,36 @@ func (db *DB) DeactivateExpiredSources() ([]User, error) {
 	return users, nil
 }
 
-func (db *DB) debugClean() error {
-	// FIXME find a better way?
-	if err := db.c.Where("TRUE").Delete(&Tag{}).Error; err != nil {
-		return err
-	}
-	if err := db.c.Where("TRUE").Delete(&Quote{}).Error; err != nil {
-		return err
-	}
-	if err := db.c.Where("TRUE").Delete(&Source{}).Error; err != nil {
-		return err
-	}
-	if err := db.c.Where("TRUE").Delete(&User{}).Error; err != nil {
-		return err
+func (db *DB) GetOutputs(userID uint) ([]Output, error) {
+	var outputs []Output
+	if err := db.c.Where(&Output{UserID: userID}).Find(&outputs).Error; err != nil {
+		return nil, err
 	}
 
-	return nil
+	return outputs, nil
+}
+
+func (db *DB) GetOutput(userID uint, chatTitle string) (*Output, error) {
+	var output Output
+	if err := db.c.Where(&Output{UserID: userID, Title: chatTitle}).Take(&output).Error; err != nil {
+		return nil, err
+	}
+
+	return &output, nil
+}
+
+func (db *DB) SetOutputActive(userID uint, chatTitle string) error {
+	return db.c.Model(&Output{}).Where(&Output{UserID: userID, Title: chatTitle}).Update("is_active", true).Error
+}
+
+func (db *DB) GetOrCreateOutput(userID uint, chatID uint, chatTitle string) (*Output, bool, error) {
+	var output Output
+	q := db.c.Where("user_id = ? AND title = ?", userID, chatTitle).Attrs(&Output{ChatID: chatID, Title: chatTitle, UserID: userID}).FirstOrCreate(&output)
+	return &output, q.RowsAffected == 1, q.Error
+}
+
+func (db *DB) DeleteOutput(userID uint, chatTitle string) error {
+	return db.c.Delete(&Output{}, "user_id = ? AND title = ?", userID, chatTitle).Error
 }
 
 func (db *DB) Close() error {

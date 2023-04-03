@@ -59,7 +59,7 @@ func TestReactStateNormal(t *testing.T) {
 	updateText := "People who do crazy things are not necessarily crazy\nsources: The social animal, Elliot Aronson\n#sociology #psychology"
 	update := makeTestMessageUpdate(int64(userID), firstName, updateText)
 
-	r, err := h.reactStateNormal(user, update)
+	r, err := h.reactDefault(user, update)
 	assert.Nil(t, err)
 	assert.Equal(t, len(r.Messages), 1)
 	assert.Equal(t, r.Messages[0].Text, strQuoteAdded)
@@ -113,6 +113,53 @@ func TestReactSetActiveSource(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			update := makeTestMessageUpdate(int64(userID), firstName, tc.Text)
 			r, err := h.reactSetActiveSource(user, update)
+
+			assert.Nil(t, err)
+			assert.Equal(t, 1, len(r.Messages))
+			assert.Equal(t, tc.Reply, r.Messages[0].Text)
+		})
+	}
+}
+
+type reactAddOutputTestCase struct {
+	Name  string
+	Text  string
+	Reply string
+}
+
+func TestReactAddOutput(t *testing.T) {
+	DB := mustInitDB(TEST_DB_URL)
+	var userID uint = 1234
+	var userChatID uint = 1
+	firstName := "aigic8"
+	var outputChatID uint = 10
+	outputChatTitle := "My quotes"
+
+	user, _, err := DB.GetOrCreateUser(userID, userChatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	_, created, err := DB.GetOrCreateOutput(userID, outputChatID, outputChatTitle)
+	if err != nil {
+		panic(err)
+	}
+
+	if created == false {
+		panic("output should be created the first time")
+	}
+
+	testCases := []reactAddOutputTestCase{
+		{Name: "normal", Text: "/addOutput " + outputChatTitle, Reply: strOutputIsSet(outputChatTitle)},
+		{Name: "alreadyActive", Text: "/addOutput " + outputChatTitle, Reply: strOutputIsAlreadyActive(outputChatTitle)},
+		{Name: "notExist", Text: "/addOutput I do not exist", Reply: strOutputNotFound("I do not exist")},
+	}
+
+	h := Handlers{DB: DB}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			update := makeTestMessageUpdate(int64(userID), firstName, tc.Text)
+			r, err := h.reactAddOutput(user, update)
 
 			assert.Nil(t, err)
 			assert.Equal(t, 1, len(r.Messages))
