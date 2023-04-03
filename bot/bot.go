@@ -59,7 +59,7 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 			logErr(err)
 		}
 	}
-	if update.Message == nil || update.Message.From == nil || update.Message.From.IsBot {
+	if update.Message == nil || update.Message.From == nil || update.Message.From.IsBot || update.Message.Chat.Type != "private" {
 		return
 	}
 
