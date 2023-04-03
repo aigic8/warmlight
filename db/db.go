@@ -164,6 +164,14 @@ func (db *DB) DeactivateExpiredSources() ([]User, error) {
 	return users, nil
 }
 
+func (db *DB) DeactivateSource(userID uint) error {
+	return db.c.
+		Model(&User{}).
+		Where(&User{ID: userID}).
+		Updates(map[string]interface{}{"active_source": sql.NullString{}, "active_source_expire": sql.NullTime{}}).
+		Error
+}
+
 func (db *DB) GetOutputs(userID uint) ([]Output, error) {
 	var outputs []Output
 	if err := db.c.Where(&Output{UserID: userID}).Find(&outputs).Error; err != nil {

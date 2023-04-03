@@ -111,9 +111,26 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 // TODO split reactions to multiple files
 func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction, error) {
 	// FIXME test reactDefault with outputs
+	// FIXME test with expired active source
 	q, err := u.ParseQuote(update.Message.Text)
 	if err != nil {
 		return u.Reaction{}, err
+	}
+
+	messages := []bot.SendMessageParams{}
+
+	if user.ActiveSource.Valid {
+		if len(q.Sources) == 0 {
+			q.MainSource = user.ActiveSource.String
+			q.Sources = append(q.Sources, user.ActiveSource.String)
+		}
+		if user.ActiveSourceExpire.Time.Before(time.Now()) {
+			h.DB.DeactivateSource(user.ID)
+			messages = append(messages, bot.SendMessageParams{
+				ChatID: update.Message.Chat.ID,
+				Text:   strActiveSourceExpired,
+			})
+		}
 	}
 
 	_, err = h.DB.CreateQuoteWithData(uint(update.Message.From.ID), q.Text, q.MainSource, q.Tags, q.Sources)
@@ -130,7 +147,6 @@ func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction
 		}, nil
 	}
 
-	messages := make([]bot.SendMessageParams, 0, len(outputs)+1)
 	messages = append(messages, u.TextReplyToMessage(update.Message, strQuoteAdded))
 	for _, output := range outputs {
 		messages = append(messages, bot.SendMessageParams{

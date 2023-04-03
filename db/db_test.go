@@ -205,6 +205,44 @@ func TestDBDeactivateExpiredSources(t *testing.T) {
 	assert.False(t, user.ActiveSourceExpire.Valid)
 }
 
+func TestDBDeactivateSource(t *testing.T) {
+	DB := mustInitDB(TEST_DB_URL)
+	var userID uint = 1234
+	var chatID uint = 1
+	userFirstName := "aigic8"
+	sourceName := "The social animal"
+	activeSourceExpire := time.Now().Add(time.Hour * 5)
+
+	_, _, err := DB.GetOrCreateUser(userID, chatID, userFirstName)
+	if err != nil {
+		panic(err)
+	}
+
+	effected, err := DB.SetActiveSource(userID, sourceName, activeSourceExpire)
+	if err != nil {
+		panic(err)
+	}
+
+	if !effected {
+		panic("effected should be true")
+	}
+
+	err = DB.DeactivateSource(userID)
+	assert.Nil(t, err)
+
+	user, created, err := DB.GetOrCreateUser(userID, chatID, userFirstName)
+	if err != nil {
+		panic(err)
+	}
+
+	if created {
+		panic("user should not be created in the second time")
+	}
+
+	assert.False(t, user.ActiveSource.Valid)
+	assert.False(t, user.ActiveSourceExpire.Valid)
+}
+
 func TestDBCreateQuoteWithData(t *testing.T) {
 	var userID uint = 1234
 	var chatID uint = 1
