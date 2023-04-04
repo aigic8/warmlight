@@ -119,7 +119,6 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 // TODO split reactions to multiple files
 func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction, error) {
 	// FIXME test reactDefault with outputs
-	// FIXME test with expired active source
 	q, err := u.ParseQuote(update.Message.Text)
 	if err != nil {
 		return u.Reaction{}, err

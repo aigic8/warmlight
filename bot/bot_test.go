@@ -3,6 +3,7 @@ package bot
 import (
 	"testing"
 
+	"github.com/aigic8/warmlight/bot/utils"
 	"github.com/aigic8/warmlight/db"
 	"github.com/go-telegram/bot/models"
 	"github.com/stretchr/testify/assert"
@@ -44,7 +45,7 @@ func TestReactNewUser(t *testing.T) {
 	}
 }
 
-func TestReactStateNormal(t *testing.T) {
+func TestReactDefaultNormal(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
 	var userID uint64 = 1234
 	var chatID uint64 = 1
@@ -63,6 +64,49 @@ func TestReactStateNormal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, len(r.Messages), 1)
 	assert.Equal(t, r.Messages[0].Text, strQuoteAdded)
+}
+
+func TestReactDefaultWithOutput(t *testing.T) {
+	DB := mustInitDB(TEST_DB_URL)
+	var userID uint64 = 1234
+	var userChatID uint64 = 1
+	var outputChatID uint64 = 2
+	firstName := "aigic8"
+	user, _, err := DB.GetOrCreateUser(userID, userChatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	_, createdOuput, err := DB.GetOrCreateOutput(userID, outputChatID, "salam")
+	if err != nil {
+		panic(err)
+	}
+
+	if !createdOuput {
+		panic(err)
+	}
+
+	h := Handlers{DB: DB}
+
+	updateText := "People who do crazy things are not necessarily crazy\nsources: The social animal, Elliot Aronson\n#sociology #psychology"
+	update := makeTestMessageUpdate(int64(userID), firstName, updateText)
+	update.Message.Chat.ID = int64(userChatID)
+
+	qouteObj, err := utils.ParseQuote(updateText)
+	if err != nil {
+		panic(err)
+	}
+
+	r, err := h.reactDefault(user, update)
+	assert.Nil(t, err)
+	assert.Equal(t, len(r.Messages), 2)
+	if r.Messages[0].ChatID.(int64) == int64(userChatID) {
+		assert.Equal(t, r.Messages[0].Text, strQuoteAdded)
+		assert.Equal(t, r.Messages[1].Text, strQuote(qouteObj))
+	} else {
+		assert.Equal(t, r.Messages[1].Text, strQuoteAdded)
+		assert.Equal(t, r.Messages[0].Text, strQuote(qouteObj))
+	}
 }
 
 func makeTestMessageUpdate(userID int64, firstName string, text string) *models.Update {
