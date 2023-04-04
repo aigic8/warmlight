@@ -20,9 +20,6 @@ import (
 const DEFAULT_ACTIVE_SOURCE_TIMEOUT = 60
 const DEACTIVATOR_INTERVAL_MINS = 10
 
-// FIXME use uint64 instead of uint for chatID and userIDs
-// FIXME use const values for command names (configurable)
-
 // TODO add support for filtering HASHTAGS and SOURCES for different outputs
 
 func NewBot(DB *db.DB, token string) error {
@@ -63,7 +60,7 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 		return
 	}
 
-	user, userCreated, err := h.DB.GetOrCreateUser(uint(update.Message.From.ID), uint(update.Message.Chat.ID), update.Message.From.FirstName)
+	user, userCreated, err := h.DB.GetOrCreateUser(uint64(update.Message.From.ID), uint64(update.Message.Chat.ID), update.Message.From.FirstName)
 	if err != nil {
 		_, err = b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: update.Message.Chat.ID,
@@ -77,11 +74,11 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 	switch {
 	case userCreated:
 		r, err = h.reactNewUser(user, update)
-	case update.Message.Text == "/start":
+	case update.Message.Text == COMMAND_START:
 		r, err = h.reactAlreadyJoinedStart(user, update)
-	case strings.HasPrefix(update.Message.Text, "/setActiveSource"):
+	case strings.HasPrefix(update.Message.Text, COMMAND_SET_ACTIVE_SOURCE):
 		r, err = h.reactSetActiveSource(user, update)
-	case strings.HasPrefix(update.Message.Text, "/addOutput"):
+	case strings.HasPrefix(update.Message.Text, COMMAND_ADD_OUTPUT):
 		r, err = h.reactAddOutput(user, update)
 	default:
 		r, err = h.reactDefault(user, update)
@@ -133,12 +130,12 @@ func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction
 		}
 	}
 
-	_, err = h.DB.CreateQuoteWithData(uint(update.Message.From.ID), q.Text, q.MainSource, q.Tags, q.Sources)
+	_, err = h.DB.CreateQuoteWithData(uint64(update.Message.From.ID), q.Text, q.MainSource, q.Tags, q.Sources)
 	if err != nil {
 		return u.Reaction{}, err
 	}
 
-	outputs, err := h.DB.GetOutputs(uint(update.Message.From.ID))
+	outputs, err := h.DB.GetOutputs(uint64(update.Message.From.ID))
 	if err != nil {
 		return u.Reaction{
 			Messages: []bot.SendMessageParams{
@@ -163,7 +160,7 @@ func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction
 
 func (h Handlers) reactNewUser(user *db.User, update *models.Update) (u.Reaction, error) {
 	var messageText string
-	if update.Message.Text == "/start" {
+	if update.Message.Text == COMMAND_START {
 		messageText = strWelcomeToBot(user.FirstName)
 	} else {
 		messageText = strYourDataIsLost(user.FirstName)
@@ -186,7 +183,7 @@ func (h Handlers) reactAlreadyJoinedStart(user *db.User, update *models.Update) 
 
 func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.Reaction, error) {
 	// TODO what heppens if we already have an active source?
-	text := strings.TrimSpace(strings.TrimPrefix(update.Message.Text, "/setActiveSource"))
+	text := strings.TrimSpace(strings.TrimPrefix(update.Message.Text, COMMAND_SET_ACTIVE_SOURCE))
 	argsRaw := strings.Split(text, ",")
 	args := make([]string, 0, len(argsRaw))
 
@@ -259,7 +256,7 @@ func (h Handlers) reactAddOutput(user *db.User, update *models.Update) (u.Reacti
 	// 1. ask user to forward a message from the channel, that way we can have the chat ID
 	// 2. List all the channels from user with buttons and ask user to click the channel button
 	// FIXME handle output title change!
-	chatTitle := strings.TrimSpace(strings.TrimPrefix(update.Message.Text, "/addOutput"))
+	chatTitle := strings.TrimSpace(strings.TrimPrefix(update.Message.Text, COMMAND_ADD_OUTPUT))
 	output, err := h.DB.GetOutput(user.ID, chatTitle)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
@@ -303,11 +300,11 @@ func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
 	adminChatMemeber := update.MyChatMember.NewChatMember.Administrator
 	ownerChatMember := update.MyChatMember.NewChatMember.Owner
 	if (adminChatMemeber != nil && adminChatMemeber.CanPostMessages) || ownerChatMember != nil {
-		if _, _, err := h.DB.GetOrCreateOutput(uint(from.ID), uint(chat.ID), chat.Title); err != nil {
+		if _, _, err := h.DB.GetOrCreateOutput(uint64(from.ID), uint64(chat.ID), chat.Title); err != nil {
 			return u.Reaction{}, err
 		}
 	} else {
-		if err := h.DB.DeleteOutput(uint(from.ID), chat.Title); err != nil {
+		if err := h.DB.DeleteOutput(uint64(from.ID), chat.Title); err != nil {
 			return u.Reaction{}, err
 		}
 	}

@@ -6,6 +6,11 @@ import (
 	"github.com/aigic8/warmlight/bot/utils"
 )
 
+// Commands
+const COMMAND_START = "/start"
+const COMMAND_SET_ACTIVE_SOURCE = "/setActiveSource"
+const COMMAND_ADD_OUTPUT = "/addOutput"
+
 const strInternalServerErr = "Internal server error happened!\nPlease retry"
 const strQuoteAdded = "Quote added"
 

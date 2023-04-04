@@ -10,7 +10,7 @@ type parseQuoteTestCase struct {
 	Name     string
 	Text     string
 	Quote    *Quote
-	makesErr bool
+	MakesErr bool
 }
 
 func TestParseQuote(t *testing.T) {
@@ -23,23 +23,33 @@ func TestParseQuote(t *testing.T) {
 			Sources:    []string{"Elliot Aronson", "The social animal"},
 			Tags:       []string{"sociology", "psychology", "influence"},
 		},
-		makesErr: false,
+		MakesErr: false,
 	}
 
 	withoutTextTestCase := parseQuoteTestCase{
 		Name:     "withoutText",
 		Text:     "\n  \n  \n",
-		makesErr: true,
+		MakesErr: true,
 	}
 
-	// TODO add test cases:
-	// without sources
-	testCases := []parseQuoteTestCase{normalTestCase, withoutTextTestCase}
+	withoutSourceTestCase := parseQuoteTestCase{
+		Name: "withoutSource",
+		Text: "The person who is easiest to brainwash is the person whose beliefes are based on slogans that have never been seriously tested. \n #sociology",
+		Quote: &Quote{
+			Text:       "The person who is easiest to brainwash is the person whose beliefes are based on slogans that have never been seriously tested.",
+			MainSource: "",
+			Tags:       []string{"sociology"},
+			Sources:    []string{},
+		},
+		MakesErr: false,
+	}
+
+	testCases := []parseQuoteTestCase{normalTestCase, withoutTextTestCase, withoutSourceTestCase}
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			q, err := ParseQuote(tc.Text)
-			if tc.makesErr {
+			if tc.MakesErr {
 				assert.NotNil(t, err)
 				return
 			}

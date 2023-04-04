@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
@@ -32,8 +33,8 @@ func TestDBInit(t *testing.T) {
 
 func TestDBGetOrCreateUser(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var ID uint = 1234
-	var chatID uint = 1
+	var ID uint64 = 1234
+	var chatID uint64 = 1
 	firstName := "aigic8"
 
 	user, isCreated, err := DB.GetOrCreateUser(ID, chatID, firstName)
@@ -50,8 +51,8 @@ func TestDBGetOrCreateUser(t *testing.T) {
 
 func TestDBCreateSource(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var chatID uint = 1
+	var userID uint64 = 1234
+	var chatID uint64 = 1
 	firstName := "aigic8"
 	sourceName := "The social animal"
 
@@ -68,8 +69,8 @@ func TestDBCreateSource(t *testing.T) {
 
 func TestDBCreateSourceAlreadyExist(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var chatID uint = 1
+	var userID uint64 = 1234
+	var chatID uint64 = 1
 	userFirstName := "aigic8"
 	sourceName := "The social animal"
 
@@ -89,8 +90,8 @@ func TestDBCreateSourceAlreadyExist(t *testing.T) {
 
 func TestDBGetSource(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var chatID uint = 1
+	var userID uint64 = 1234
+	var chatID uint64 = 1
 	userFirstName := "aigic8"
 	sourceName := "The social animal"
 
@@ -111,8 +112,8 @@ func TestDBGetSource(t *testing.T) {
 
 func TestDBGetSourceErrDoesNotFound(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var chatID uint = 1
+	var userID uint64 = 1234
+	var chatID uint64 = 1
 	userFirstName := "aigic8"
 	sourceName := "The social animal"
 
@@ -128,9 +129,9 @@ func TestDBGetSourceErrDoesNotFound(t *testing.T) {
 
 func TestDBSetActiveSourceNormal(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
+	var userID uint64 = 1234
 	userFirstName := "aigic8"
-	var chatID uint = 1
+	var chatID uint64 = 1
 	sourceName := "The social animal"
 	activeSourceExpire := time.Now().Add(time.Minute * 5)
 
@@ -151,8 +152,8 @@ func TestDBSetActiveSourceNormal(t *testing.T) {
 
 func TestDBSetActiveSourceNotExist(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var chatID uint = 1
+	var userID uint64 = 1234
+	var chatID uint64 = 1
 	userFirstName := "aigic8"
 	sourceName := "The social animal"
 	activeSourceExpire := time.Now().Add(time.Minute * 5)
@@ -169,8 +170,8 @@ func TestDBSetActiveSourceNotExist(t *testing.T) {
 
 func TestDBDeactivateExpiredSources(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var chatID uint = 1
+	var userID uint64 = 1234
+	var chatID uint64 = 1
 	userFirstName := "aigic8"
 	sourceName := "The social animal"
 	activeSourceExpire := time.Now().Add(time.Minute * -5)
@@ -207,8 +208,8 @@ func TestDBDeactivateExpiredSources(t *testing.T) {
 
 func TestDBDeactivateSource(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var chatID uint = 1
+	var userID uint64 = 1234
+	var chatID uint64 = 1
 	userFirstName := "aigic8"
 	sourceName := "The social animal"
 	activeSourceExpire := time.Now().Add(time.Hour * 5)
@@ -244,8 +245,8 @@ func TestDBDeactivateSource(t *testing.T) {
 }
 
 func TestDBCreateQuoteWithData(t *testing.T) {
-	var userID uint = 1234
-	var chatID uint = 1
+	var userID uint64 = 1234
+	var chatID uint64 = 1
 	text := "People who do crazy things are not necessarily crazy"
 	mainSource := "The social animal"
 	sources := []string{"The social animal", "Elliot Aronson"}
@@ -282,16 +283,16 @@ func TestDBCreateQuoteWithData(t *testing.T) {
 	}
 	assert.Nil(t, err)
 	assert.Equal(t, q.Text, text)
-	assert.Equal(t, q.MainSource, &mainSource)
+	assert.Equal(t, q.MainSource, sql.NullString{Valid: true, String: mainSource})
 	assert.ElementsMatch(t, sourceNames, sources)
 	assert.ElementsMatch(t, tagNames, tags)
 }
 
 func TestDBGetOrCreateOutputNormal(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var userChatID uint = 1
-	var outputChatID uint = 10
+	var userID uint64 = 1234
+	var userChatID uint64 = 1
+	var outputChatID uint64 = 10
 	outputChatTitle := "My quotes"
 
 	userFirstName := "aigic8"
@@ -311,9 +312,9 @@ func TestDBGetOrCreateOutputNormal(t *testing.T) {
 
 func TestDBGetOrCreateOutputAlreadyCreated(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var userChatID uint = 1
-	var outputChatID uint = 10
+	var userID uint64 = 1234
+	var userChatID uint64 = 1
+	var outputChatID uint64 = 10
 	outputChatTitle := "My quotes"
 
 	userFirstName := "aigic8"
@@ -339,9 +340,9 @@ func TestDBGetOrCreateOutputAlreadyCreated(t *testing.T) {
 
 func TestDBGetOutputNormal(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var userChatID uint = 1
-	var outputChatID uint = 10
+	var userID uint64 = 1234
+	var userChatID uint64 = 1
+	var outputChatID uint64 = 10
 	outputChatTitle := "My quotes"
 
 	userFirstName := "aigic8"
@@ -368,9 +369,9 @@ func TestDBGetOutputNormal(t *testing.T) {
 
 func TestDBSetOutputActiveNormal(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var userChatID uint = 1
-	var outputChatID uint = 10
+	var userID uint64 = 1234
+	var userChatID uint64 = 1
+	var outputChatID uint64 = 10
 	outputChatTitle := "My quotes"
 
 	userFirstName := "aigic8"
@@ -401,9 +402,9 @@ func TestDBSetOutputActiveNormal(t *testing.T) {
 
 func TestDBDeleteOutputNormal(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var userChatID uint = 1
-	var outputChatID uint = 10
+	var userID uint64 = 1234
+	var userChatID uint64 = 1
+	var outputChatID uint64 = 10
 	outputChatTitle := "My quotes"
 
 	userFirstName := "aigic8"
@@ -432,8 +433,8 @@ func TestDBDeleteOutputNormal(t *testing.T) {
 
 func TestDBDeleteOutputNotExist(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var userChatID uint = 1
+	var userID uint64 = 1234
+	var userChatID uint64 = 1
 	outputChatTitle := "My quotes"
 
 	userFirstName := "aigic8"
@@ -448,9 +449,9 @@ func TestDBDeleteOutputNotExist(t *testing.T) {
 
 func TestDBGetOutputs(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var userChatID uint = 1
-	var outputChatID uint = 10
+	var userID uint64 = 1234
+	var userChatID uint64 = 1
+	var outputChatID uint64 = 10
 	outputChatTitle := "My quotes"
 
 	userFirstName := "aigic8"

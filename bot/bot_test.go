@@ -18,8 +18,8 @@ type reactNewUserTestCase struct {
 
 func TestReactNewUser(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var chatID uint = 1
+	var userID uint64 = 1234
+	var chatID uint64 = 1
 	firstName := "aigic8"
 	user, _, err := DB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
@@ -29,7 +29,7 @@ func TestReactNewUser(t *testing.T) {
 	h := Handlers{DB: DB}
 
 	testCases := []reactNewUserTestCase{
-		{Name: "normal", UserText: "/start", ReplyText: strWelcomeToBot(firstName)},
+		{Name: "normal", UserText: COMMAND_START, ReplyText: strWelcomeToBot(firstName)},
 		{Name: "lostData", UserText: "bla", ReplyText: strYourDataIsLost(firstName)},
 	}
 
@@ -46,8 +46,8 @@ func TestReactNewUser(t *testing.T) {
 
 func TestReactStateNormal(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var chatID uint = 1
+	var userID uint64 = 1234
+	var chatID uint64 = 1
 	firstName := "aigic8"
 	user, _, err := DB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
@@ -88,8 +88,8 @@ type reactSetActiveSourceTestCase struct {
 
 func TestReactSetActiveSource(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var chatID uint = 1
+	var userID uint64 = 1234
+	var chatID uint64 = 1
 	firstName := "aigic8"
 	user, _, err := DB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
@@ -102,11 +102,11 @@ func TestReactSetActiveSource(t *testing.T) {
 
 	h := Handlers{DB: DB}
 	testCases := []reactSetActiveSourceTestCase{
-		{Name: "normal", Text: "/setActiveSource The social animal, 20", Reply: strActiveSourceIsSet("The social animal", 20)},
-		{Name: "withoutTimeout", Text: "/setActiveSource The social animal", Reply: strActiveSourceIsSet("The social animal", DEFAULT_ACTIVE_SOURCE_TIMEOUT)},
-		{Name: "malformed", Text: "/setActiveSource The, social, animal", Reply: strMalformedSetActiveSource},
-		{Name: "empty", Text: "/setActiveSource", Reply: strMalformedSetActiveSource},
-		{Name: "sourceDoesNotExist", Text: "/setActiveSource Elliot Aronson", Reply: strSourceDoesExist("Elliot Aronson")},
+		{Name: "normal", Text: COMMAND_SET_ACTIVE_SOURCE + " The social animal, 20", Reply: strActiveSourceIsSet("The social animal", 20)},
+		{Name: "withoutTimeout", Text: COMMAND_SET_ACTIVE_SOURCE + " The social animal", Reply: strActiveSourceIsSet("The social animal", DEFAULT_ACTIVE_SOURCE_TIMEOUT)},
+		{Name: "malformed", Text: COMMAND_SET_ACTIVE_SOURCE + " The, social, animal", Reply: strMalformedSetActiveSource},
+		{Name: "empty", Text: COMMAND_SET_ACTIVE_SOURCE, Reply: strMalformedSetActiveSource},
+		{Name: "sourceDoesNotExist", Text: COMMAND_SET_ACTIVE_SOURCE + " Elliot Aronson", Reply: strSourceDoesExist("Elliot Aronson")},
 	}
 
 	for _, tc := range testCases {
@@ -129,10 +129,10 @@ type reactAddOutputTestCase struct {
 
 func TestReactAddOutput(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint = 1234
-	var userChatID uint = 1
+	var userID uint64 = 1234
+	var userChatID uint64 = 1
 	firstName := "aigic8"
-	var outputChatID uint = 10
+	var outputChatID uint64 = 10
 	outputChatTitle := "My quotes"
 
 	user, _, err := DB.GetOrCreateUser(userID, userChatID, firstName)
@@ -149,10 +149,11 @@ func TestReactAddOutput(t *testing.T) {
 		panic("output should be created the first time")
 	}
 
+	addOuputSpace := COMMAND_ADD_OUTPUT + " "
 	testCases := []reactAddOutputTestCase{
-		{Name: "normal", Text: "/addOutput " + outputChatTitle, Reply: strOutputIsSet(outputChatTitle)},
-		{Name: "alreadyActive", Text: "/addOutput " + outputChatTitle, Reply: strOutputIsAlreadyActive(outputChatTitle)},
-		{Name: "notExist", Text: "/addOutput I do not exist", Reply: strOutputNotFound("I do not exist")},
+		{Name: "normal", Text: addOuputSpace + outputChatTitle, Reply: strOutputIsSet(outputChatTitle)},
+		{Name: "alreadyActive", Text: addOuputSpace + outputChatTitle, Reply: strOutputIsAlreadyActive(outputChatTitle)},
+		{Name: "notExist", Text: addOuputSpace + "I do not exist", Reply: strOutputNotFound("I do not exist")},
 	}
 
 	h := Handlers{DB: DB}
