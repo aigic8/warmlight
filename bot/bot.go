@@ -3,7 +3,6 @@ package bot
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
@@ -14,11 +13,14 @@ import (
 	"github.com/aigic8/warmlight/db"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/rs/zerolog"
 )
 
 // TODO use as config to newBot
 const DEFAULT_ACTIVE_SOURCE_TIMEOUT = 60
 const DEACTIVATOR_INTERVAL_MINS = 10
+const IS_DEV = true
+const LOG_PATH = "log/warmlight.log"
 
 // TODO add support for filtering HASHTAGS and SOURCES for different outputs
 
@@ -26,7 +28,12 @@ func NewBot(DB *db.DB, token string) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	h := Handlers{DB: DB}
+	l, err := u.NewBotLogger(IS_DEV, LOG_PATH)
+	if err != nil {
+		return err
+	}
+
+	h := Handlers{DB: DB, l: l}
 	opts := []bot.Option{
 		bot.WithDebug(),
 		bot.WithDefaultHandler(h.updateHandler),
@@ -37,7 +44,10 @@ func NewBot(DB *db.DB, token string) error {
 		return err
 	}
 
-	deactivator := NewSourceDeactiver(DB, b, ctx)
+	deactivator, err := NewSourceDeactiver(DB, b, ctx)
+	if err != nil {
+		return err
+	}
 	deactivator.Schedule(DEACTIVATOR_INTERVAL_MINS)
 
 	b.Start(ctx)
@@ -47,13 +57,14 @@ func NewBot(DB *db.DB, token string) error {
 
 type Handlers struct {
 	DB *db.DB
+	l  zerolog.Logger
 }
 
 func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	// TODO support groups
 	if update.MyChatMember != nil {
 		if _, err := h.reactMyChatMember(update); err != nil {
-			logErr(err)
+			h.l.Error().Err(err).Msg("reacting to chat member update")
 		}
 	}
 	if update.Message == nil || update.Message.From == nil || update.Message.From.IsBot || update.Message.Chat.Type != "private" {
@@ -66,7 +77,7 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 			ChatID: update.Message.Chat.ID,
 			Text:   strInternalServerErr,
 		})
-		logErr(err)
+		h.l.Error().Err(err).Msg("getting or creating user")
 		return
 	}
 
@@ -89,7 +100,7 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 			ChatID: update.Message.Chat.ID,
 			Text:   strInternalServerErr,
 		})
-		logErr(err)
+		h.l.Error().Err(err).Msg("sending internal server error message")
 		return
 	}
 
@@ -98,7 +109,7 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 			ChatID: update.Message.Chat.ID,
 			Text:   strInternalServerErr,
 		})
-		logErr(err)
+		h.l.Error().Err(err).Msg("sending reaction messages")
 		return
 	}
 }
@@ -310,11 +321,4 @@ func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
 	}
 
 	return u.Reaction{}, nil
-}
-
-// TODO better logging errors!
-func logErr(err error) {
-	if err != nil {
-		fmt.Println(err)
-	}
 }

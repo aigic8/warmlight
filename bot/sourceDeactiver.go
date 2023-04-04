@@ -2,12 +2,13 @@ package bot
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	u "github.com/aigic8/warmlight/bot/utils"
 	"github.com/aigic8/warmlight/db"
 	"github.com/go-co-op/gocron"
 	"github.com/go-telegram/bot"
+	"github.com/rs/zerolog"
 )
 
 type SourceDeactiver struct {
@@ -15,10 +16,15 @@ type SourceDeactiver struct {
 	b         *bot.Bot
 	ctx       context.Context
 	scheduler *gocron.Scheduler
+	l         zerolog.Logger
 }
 
-func NewSourceDeactiver(db *db.DB, b *bot.Bot, ctx context.Context) *SourceDeactiver {
-	return &SourceDeactiver{db: db, b: b, ctx: ctx}
+func NewSourceDeactiver(db *db.DB, b *bot.Bot, ctx context.Context) (*SourceDeactiver, error) {
+	l, err := u.NewSourceDeactiverLogger(IS_DEV, LOG_PATH)
+	if err != nil {
+		return nil, err
+	}
+	return &SourceDeactiver{db: db, b: b, ctx: ctx, l: l}, nil
 }
 
 func (sd *SourceDeactiver) Schedule(intervalMins int) {
@@ -30,8 +36,7 @@ func (sd *SourceDeactiver) Schedule(intervalMins int) {
 func (sd *SourceDeactiver) deactivateExpiredSources() {
 	users, err := sd.db.DeactivateExpiredSources()
 	if err != nil {
-		// FIXME error handling
-		fmt.Println(err)
+		sd.l.Error().Err(err).Msg("deactivating expiresed sources")
 		return
 	}
 
@@ -41,9 +46,8 @@ func (sd *SourceDeactiver) deactivateExpiredSources() {
 			Text:   strActiveSourceExpired,
 		})
 
-		// TODO error handling
 		if err != nil {
-			fmt.Println(err)
+			sd.l.Error().Err(err).Msg("sending expired notifications to users")
 		}
 	}
 }
