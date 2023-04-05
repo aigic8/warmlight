@@ -20,16 +20,17 @@ type reactNewUserTestCase struct {
 }
 
 func TestReactNewUser(t *testing.T) {
-	DB := mustInitDB(TEST_DB_URL)
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
 	var userID int64 = 1234
 	var chatID int64 = 1
 	firstName := "aigic8"
-	user, _, err := DB.GetOrCreateUser(userID, chatID, firstName)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}
 
-	h := Handlers{DB: DB}
+	h := Handlers{db: appDB}
 
 	testCases := []reactNewUserTestCase{
 		{Name: "normal", UserText: COMMAND_START, ReplyText: strWelcomeToBot(firstName)},
@@ -48,16 +49,17 @@ func TestReactNewUser(t *testing.T) {
 }
 
 func TestReactDefaultNormal(t *testing.T) {
-	DB := mustInitDB(TEST_DB_URL)
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
 	var userID int64 = 1234
 	var chatID int64 = 1
 	firstName := "aigic8"
-	user, _, err := DB.GetOrCreateUser(userID, chatID, firstName)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}
 
-	h := Handlers{DB: DB}
+	h := Handlers{db: appDB}
 
 	updateText := "People who do crazy things are not necessarily crazy\nsources: The social animal, Elliot Aronson\n#sociology #psychology"
 	update := makeTestMessageUpdate(int64(userID), firstName, updateText)
@@ -69,17 +71,18 @@ func TestReactDefaultNormal(t *testing.T) {
 }
 
 func TestReactDefaultWithOutput(t *testing.T) {
-	DB := mustInitDB(TEST_DB_URL)
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
 	var userID int64 = 1234
 	var userChatID int64 = 1
 	var outputChatID int64 = 2
 	firstName := "aigic8"
-	user, _, err := DB.GetOrCreateUser(userID, userChatID, firstName)
+	user, _, err := appDB.GetOrCreateUser(userID, userChatID, firstName)
 	if err != nil {
 		panic(err)
 	}
 
-	_, createdOuput, err := DB.GetOrCreateOutput(userID, outputChatID, "salam")
+	_, createdOuput, err := appDB.GetOrCreateOutput(userID, outputChatID, "salam")
 	if err != nil {
 		panic(err)
 	}
@@ -88,7 +91,7 @@ func TestReactDefaultWithOutput(t *testing.T) {
 		panic(err)
 	}
 
-	h := Handlers{DB: DB}
+	h := Handlers{db: appDB}
 
 	updateText := "People who do crazy things are not necessarily crazy\nsources: The social animal, Elliot Aronson\n#sociology #sociology"
 	update := makeTestMessageUpdate(int64(userID), firstName, updateText)
@@ -111,21 +114,6 @@ func TestReactDefaultWithOutput(t *testing.T) {
 	}
 }
 
-func makeTestMessageUpdate(userID int64, firstName string, text string) *models.Update {
-	return &models.Update{
-		Message: &models.Message{
-			ID:   1,
-			Text: text,
-			From: &models.User{
-				ID:        userID,
-				FirstName: firstName,
-				IsBot:     false,
-				IsPremium: false,
-			},
-		},
-	}
-}
-
 type reactSetActiveSourceTestCase struct {
 	Name  string
 	Text  string
@@ -133,20 +121,21 @@ type reactSetActiveSourceTestCase struct {
 }
 
 func TestReactSetActiveSource(t *testing.T) {
-	DB := mustInitDB(TEST_DB_URL)
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
 	var userID int64 = 1234
 	var chatID int64 = 1
 	firstName := "aigic8"
-	user, _, err := DB.GetOrCreateUser(userID, chatID, firstName)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}
 
-	if _, err := DB.CreateSource(userID, "The social animal"); err != nil {
+	if _, err := appDB.CreateSource(userID, "The social animal"); err != nil {
 		panic(err)
 	}
 
-	h := Handlers{DB: DB}
+	h := Handlers{db: appDB}
 	testCases := []reactSetActiveSourceTestCase{
 		{Name: "normal", Text: COMMAND_SET_ACTIVE_SOURCE + " The social animal, 20", Reply: strActiveSourceIsSet("The social animal", 20)},
 		{Name: "withoutTimeout", Text: COMMAND_SET_ACTIVE_SOURCE + " The social animal", Reply: strActiveSourceIsSet("The social animal", DEFAULT_ACTIVE_SOURCE_TIMEOUT)},
@@ -174,19 +163,20 @@ type reactAddOutputTestCase struct {
 }
 
 func TestReactAddOutput(t *testing.T) {
-	DB := mustInitDB(TEST_DB_URL)
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
 	var userID int64 = 1234
 	var userChatID int64 = 1
 	firstName := "aigic8"
 	var outputChatID int64 = 10
 	outputChatTitle := "My quotes"
 
-	user, _, err := DB.GetOrCreateUser(userID, userChatID, firstName)
+	user, _, err := appDB.GetOrCreateUser(userID, userChatID, firstName)
 	if err != nil {
 		panic(err)
 	}
 
-	_, created, err := DB.GetOrCreateOutput(userID, outputChatID, outputChatTitle)
+	_, created, err := appDB.GetOrCreateOutput(userID, outputChatID, outputChatTitle)
 	if err != nil {
 		panic(err)
 	}
@@ -202,7 +192,7 @@ func TestReactAddOutput(t *testing.T) {
 		{Name: "notExist", Text: addOuputSpace + "I do not exist", Reply: strOutputNotFound("I do not exist")},
 	}
 
-	h := Handlers{DB: DB}
+	h := Handlers{db: appDB}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			update := makeTestMessageUpdate(int64(userID), firstName, tc.Text)
@@ -216,19 +206,34 @@ func TestReactAddOutput(t *testing.T) {
 
 }
 
+func makeTestMessageUpdate(userID int64, firstName string, text string) *models.Update {
+	return &models.Update{
+		Message: &models.Message{
+			ID:   1,
+			Text: text,
+			From: &models.User{
+				ID:        userID,
+				FirstName: firstName,
+				IsBot:     false,
+				IsPremium: false,
+			},
+		},
+	}
+}
+
 func mustInitDB(URL string) *db.DB {
-	DB, err := db.NewDB(URL, DB_TIMEOUT)
+	appDB, err := db.NewDB(URL, DB_TIMEOUT)
 	if err != nil {
 		panic(err)
 	}
 
-	if err := DB.DEBUGCleanDB(); err != nil {
+	if err := appDB.DEBUGCleanDB(); err != nil {
 		panic(err)
 	}
 
-	if err := DB.Init(); err != nil {
+	if err := appDB.Init(); err != nil {
 		panic(err)
 	}
 
-	return DB
+	return appDB
 }

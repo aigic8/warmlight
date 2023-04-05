@@ -24,7 +24,7 @@ const LOG_PATH = "log/warmlight.log"
 
 // TODO add support for filtering HASHTAGS and SOURCES for different outputs
 
-func NewBot(DB *db.DB, token string) error {
+func NewBot(appDB *db.DB, token string) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
@@ -33,7 +33,7 @@ func NewBot(DB *db.DB, token string) error {
 		return err
 	}
 
-	h := Handlers{DB: DB, l: l}
+	h := Handlers{db: appDB, l: l}
 	opts := []bot.Option{
 		bot.WithDebug(),
 		bot.WithDefaultHandler(h.updateHandler),
@@ -44,7 +44,7 @@ func NewBot(DB *db.DB, token string) error {
 		return err
 	}
 
-	deactivator, err := NewSourceDeactiver(DB, b, ctx)
+	deactivator, err := NewSourceDeactiver(appDB, b, ctx)
 	if err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func NewBot(DB *db.DB, token string) error {
 }
 
 type Handlers struct {
-	DB *db.DB
+	db *db.DB
 	l  zerolog.Logger
 }
 
@@ -71,7 +71,7 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 		return
 	}
 
-	user, userCreated, err := h.DB.GetOrCreateUser(int64(update.Message.From.ID), int64(update.Message.Chat.ID), update.Message.From.FirstName)
+	user, userCreated, err := h.db.GetOrCreateUser(int64(update.Message.From.ID), int64(update.Message.Chat.ID), update.Message.From.FirstName)
 	if err != nil {
 		_, err = b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: update.Message.Chat.ID,
@@ -132,7 +132,7 @@ func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction
 			q.Sources = append(q.Sources, user.ActiveSource.String)
 		}
 		if user.ActiveSourceExpire.Time.Before(time.Now()) {
-			h.DB.DeactivateSource(user.ID)
+			h.db.DeactivateSource(user.ID)
 			messages = append(messages, bot.SendMessageParams{
 				ChatID: update.Message.Chat.ID,
 				Text:   strActiveSourceExpired,
@@ -140,12 +140,12 @@ func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction
 		}
 	}
 
-	_, err = h.DB.CreateQuoteWithData(int64(update.Message.From.ID), q.Text, q.MainSource, q.Tags, q.Sources)
+	_, err = h.db.CreateQuoteWithData(int64(update.Message.From.ID), q.Text, q.MainSource, q.Tags, q.Sources)
 	if err != nil {
 		return u.Reaction{}, err
 	}
 
-	outputs, err := h.DB.GetOutputs(int64(update.Message.From.ID))
+	outputs, err := h.db.GetOutputs(int64(update.Message.From.ID))
 	if err != nil {
 		return u.Reaction{
 			Messages: []bot.SendMessageParams{
@@ -231,7 +231,7 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 	}
 	activeSourceExpire := time.Now().Add(time.Minute * time.Duration(activeSourceTimeoutInt))
 
-	_, err = h.DB.GetSource(user.ID, args[0])
+	_, err = h.db.GetSource(user.ID, args[0])
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return u.Reaction{
@@ -244,7 +244,7 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 		return u.Reaction{}, err
 	}
 
-	_, effected, err := h.DB.SetActiveSource(user.ID, args[0], activeSourceExpire)
+	_, effected, err := h.db.SetActiveSource(user.ID, args[0], activeSourceExpire)
 	if err != nil {
 		return u.Reaction{}, err
 	}
@@ -267,7 +267,7 @@ func (h Handlers) reactAddOutput(user *db.User, update *models.Update) (u.Reacti
 	// 2. List all the channels from user with buttons and ask user to click the channel button
 	// FIXME handle output title change!
 	chatTitle := strings.TrimSpace(strings.TrimPrefix(update.Message.Text, COMMAND_ADD_OUTPUT))
-	output, err := h.DB.GetOutput(user.ID, chatTitle)
+	output, err := h.db.GetOutput(user.ID, chatTitle)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return u.Reaction{
@@ -287,7 +287,7 @@ func (h Handlers) reactAddOutput(user *db.User, update *models.Update) (u.Reacti
 		}, nil
 	}
 
-	_, err = h.DB.SetOutputActive(user.ID, chatTitle)
+	_, err = h.db.SetOutputActive(user.ID, chatTitle)
 	if err != nil {
 		return u.Reaction{}, err
 	}
@@ -311,11 +311,11 @@ func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
 	adminChatMemeber := update.MyChatMember.NewChatMember.Administrator
 	ownerChatMember := update.MyChatMember.NewChatMember.Owner
 	if (adminChatMemeber != nil && adminChatMemeber.CanPostMessages) || ownerChatMember != nil {
-		if _, _, err := h.DB.GetOrCreateOutput(int64(from.ID), int64(chat.ID), chat.Title); err != nil {
+		if _, _, err := h.db.GetOrCreateOutput(int64(from.ID), int64(chat.ID), chat.Title); err != nil {
 			return u.Reaction{}, err
 		}
 	} else {
-		if err := h.DB.DeleteOutput(int64(from.ID), chat.Title); err != nil {
+		if err := h.db.DeleteOutput(int64(from.ID), chat.Title); err != nil {
 			return u.Reaction{}, err
 		}
 	}

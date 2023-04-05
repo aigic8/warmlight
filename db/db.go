@@ -19,7 +19,7 @@ type Source = base.Source
 type Quote = base.Quote
 
 type DB struct {
-	db      *pgxpool.Pool
+	pool    *pgxpool.Pool
 	q       *base.Queries
 	Timeout time.Duration
 }
@@ -34,7 +34,7 @@ func NewDB(URL string, timeout time.Duration) (*DB, error) {
 
 	q := base.New(db)
 
-	return &DB{db: db, q: q, Timeout: timeout}, nil
+	return &DB{pool: db, q: q, Timeout: timeout}, nil
 }
 
 func (db *DB) Init() error {
@@ -72,10 +72,11 @@ func (db *DB) GetOrCreateUser(ID, ChatID int64, firstName string) (*User, bool, 
 }
 
 func (db *DB) CreateQuoteWithData(userID int64, text, mainSource string, tagNames []string, sourceNames []string) (*Quote, error) {
-	c, err := db.db.Acquire(context.Background())
+	c, err := db.pool.Acquire(context.Background())
 	if err != nil {
 		return nil, err
 	}
+	defer c.Release()
 
 	tx, err := c.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {
@@ -272,7 +273,6 @@ func (db *DB) DEBUGCleanDB() error {
 	return nil
 }
 
-func (db *DB) Close() error {
-	// FIXME implement!
-	return nil
+func (db *DB) Close() {
+	db.pool.Close()
 }
