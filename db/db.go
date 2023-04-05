@@ -1,211 +1,275 @@
 package db
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"time"
 
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
+	"github.com/aigic8/warmlight/db/base"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-var ErrNotFound = gorm.ErrRecordNotFound
+var ErrNotFound = pgx.ErrNoRows
+
+type User = base.User
+type Output = base.Output
+type Source = base.Source
+type Quote = base.Quote
 
 type DB struct {
-	c *gorm.DB
+	db      *pgxpool.Pool
+	q       *base.Queries
+	Timeout time.Duration
 }
 
-type (
-	User struct {
-		ID                 uint64 `gorm:"primaryKey"`
-		ChatID             uint64 `gorm:"not null"`
-		FirstName          string `gorm:"not null"`
-		ActiveSource       sql.NullString
-		ActiveSourceExpire sql.NullTime
-		Quotes             []Quote
-		Sources            []Source
-		Tags               []Tag
-		CreatedAt          time.Time `gorm:"autoCreateTime"`
-		UpdatedAt          time.Time `gorm:"autoUpdateTime"`
-	}
-
-	Quote struct {
-		gorm.Model
-		Text       string `gorm:"not null;uniqueIndex:idx_quote,priority:2"`
-		UserID     uint64 `gorm:"not null;uniqueIndex:idx_quote,priority:1"`
-		MainSource sql.NullString
-		Sources    []Source `gorm:"many2many:quote_source;"`
-		Tags       []Tag    `gorm:"many2many:quote_tag;"`
-	}
-
-	Source struct {
-		gorm.Model
-		Name       string  `gorm:"not null;uniqueIndex:idx_source,priority:2"`
-		UserID     uint64  `gorm:"not null;uniqueIndex:idx_source,priority:1"`
-		MainQuotes []Quote `gorm:"foreignKey:MainSource;references:Name"`
-		Quotes     []Quote `gorm:"many2many:quote_source;"`
-	}
-
-	Tag struct {
-		gorm.Model
-		Name   string  `gorm:"not null;uniqueIndex:idx_tag,priority:2"`
-		UserID uint64  `gorm:"not null;uniqueIndex:idx_tag,priority:1"`
-		Quotes []Quote `gorm:"many2many:quote_tag;"`
-	}
-
-	Output struct {
-		gorm.Model
-		ChatID   uint64 `gorm:"not null"`
-		UserID   uint64 `gorm:"not null"`
-		Title    string `gorm:"not null"`
-		IsActive bool   `gorm:"default:false"`
-	}
-)
-
-func NewDB(URL string) (*DB, error) {
-	db, err := gorm.Open(sqlite.Open(URL), &gorm.Config{})
+func NewDB(URL string, timeout time.Duration) (*DB, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	db, err := pgxpool.Connect(ctx, URL)
 	if err != nil {
 		return nil, err
 	}
 
-	return &DB{c: db}, nil
+	q := base.New(db)
+
+	return &DB{db: db, q: q, Timeout: timeout}, nil
 }
 
 func (db *DB) Init() error {
-	return db.c.AutoMigrate(&User{}, &Quote{}, &Source{}, &Tag{}, &Output{})
+	// TODO create init function
+	return nil
 }
 
-func (db *DB) GetUser(ID uint64) (*User, error) {
-	var user User
-	if err := db.c.First(&user, ID).Error; err != nil {
+func (db *DB) GetUser(ID int64) (*User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	user, err := db.q.GetUser(ctx, ID)
+	if err != nil {
 		return nil, err
 	}
 
 	return &user, nil
 }
 
-func (db *DB) GetOrCreateUser(ID, ChatID uint64, firstName string) (*User, bool, error) {
-	var user User
-	res := db.c.Where("ID = ?", ID).Attrs(&User{ID: ID, ChatID: ChatID, FirstName: firstName}).FirstOrCreate(&user)
-	return &user, res.RowsAffected == 1, res.Error
+func (db *DB) GetOrCreateUser(ID, ChatID int64, firstName string) (*User, bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	user, err := db.q.GetUser(ctx, ID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			user, err := db.q.CreateUser(ctx, base.CreateUserParams{ID: ID, ChatID: ChatID, Firstname: firstName})
+			if err != nil {
+				return nil, false, err
+			}
+			return &user, true, nil
+		}
+		return nil, false, err
+	}
+
+	return &user, false, nil
 }
 
-func (db *DB) CreateQuoteWithData(userID uint64, text, mainSource string, tagNames []string, sourceNames []string) (*Quote, error) {
-	tags := make([]Tag, 0, len(tagNames))
-	for _, name := range tagNames {
-		tags = append(tags, Tag{UserID: userID, Name: name})
+func (db *DB) CreateQuoteWithData(userID int64, text, mainSource string, tagNames []string, sourceNames []string) (*Quote, error) {
+	c, err := db.db.Acquire(context.Background())
+	if err != nil {
+		return nil, err
 	}
 
-	sources := make([]Source, 0, len(sourceNames))
-	for _, name := range sourceNames {
-		sources = append(sources, Source{UserID: userID, Name: name})
+	tx, err := c.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		return nil, err
 	}
-	var mainSourceSql sql.NullString
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(context.Background())
+		} else {
+			tx.Commit(context.Background())
+		}
+	}()
+
+	q := db.q.WithTx(tx)
+
+	mainSourceSql := sql.NullString{}
 	if mainSource != "" {
-		mainSourceSql.Valid = true
-		mainSourceSql.String = mainSource
+		mainSourceSql = sql.NullString{Valid: true, String: mainSource}
 	}
-	quote := Quote{
-		UserID:     userID,
-		Text:       text,
-		MainSource: mainSourceSql,
-		Sources:    sources,
-		Tags:       tags,
-	}
-
-	if err := db.c.Create(&quote).Error; err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	quote, err := q.CreateQuote(ctx, base.CreateQuoteParams{UserID: userID, Text: text, MainSource: mainSourceSql})
+	if err != nil {
 		return nil, err
 	}
 
-	if err := db.c.Save(&quote).Error; err != nil {
-		return nil, err
+	for _, name := range tagNames {
+		ctx, cancel := context.WithTimeout(context.Background(), db.Timeout*2)
+		defer cancel()
+		tagID, err := q.GetOrCreateTag(ctx, base.GetOrCreateTagParams{UserID: userID, Name: name})
+		if err != nil {
+			return nil, err
+		}
+		err = q.CreateQuotesTags(ctx, base.CreateQuotesTagsParams{Quote: quote.ID, Tag: tagID})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, name := range sourceNames {
+		ctx, cancel := context.WithTimeout(context.Background(), db.Timeout*2)
+		defer cancel()
+		sourceID, err := q.GetOrCreateSource(ctx, base.GetOrCreateSourceParams{UserID: userID, Name: name})
+		if err != nil {
+			return nil, err
+		}
+		err = q.CreateQuotesSources(ctx, base.CreateQuotesSourcesParams{Quote: quote.ID, Source: sourceID})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &quote, nil
 }
 
-func (db *DB) CreateSource(userID uint64, name string) (*Source, error) {
-	source := Source{UserID: userID, Name: name}
-	if err := db.c.Create(&source).Error; err != nil {
+func (db *DB) CreateSource(userID int64, name string) (*Source, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	source, err := db.q.CreateSource(ctx, base.CreateSourceParams{UserID: userID, Name: name})
+	if err != nil {
 		return nil, err
 	}
+
 	return &source, nil
 }
 
-func (db *DB) GetSource(userID uint64, name string) (*Source, error) {
-	var res Source
-	if err := db.c.Where(&Source{UserID: userID, Name: name}).Take(&res).Error; err != nil {
+func (db *DB) GetSource(userID int64, name string) (*Source, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	source, err := db.q.GetSource(ctx, base.GetSourceParams{UserID: userID, Name: name})
+	if err != nil {
 		return nil, err
 	}
 
-	return &res, nil
+	return &source, nil
 }
 
-func (db *DB) SetActiveSource(userID uint64, activeSourceStr string, activeSourceExpireTime time.Time) (bool, error) {
-	activeSource := sql.NullString{Valid: true, String: activeSourceStr}
-	activeSourceExpire := sql.NullTime{Valid: true, Time: activeSourceExpireTime}
-	res := User{ID: userID}
-	update := db.c.
-		Model(&res).
-		Updates(User{ActiveSource: activeSource, ActiveSourceExpire: activeSourceExpire})
+func (db *DB) SetActiveSource(userID int64, activeSourceStr string, activeSourceExpireTime time.Time) (*User, bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	user, err := db.q.SetActiveSource(ctx, base.SetActiveSourceParams{
+		ID:                 userID,
+		ActiveSource:       sql.NullString{Valid: true, String: activeSourceStr},
+		ActiveSourceExpire: sql.NullTime{Valid: true, Time: activeSourceExpireTime},
+	})
 
-	return update.RowsAffected == 1, update.Error
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return &user, true, nil
 }
 
-// deactivate user sources with expired active source and returns users with valid `firstName`, `chatID` and `ID`
 func (db *DB) DeactivateExpiredSources() ([]User, error) {
-	var users []User
-	returningColumns := []clause.Column{{Name: "first_name"}, {Name: "chat_id"}, {Name: "id"}}
-	update := db.c.
-		Model(&users).
-		Clauses(clause.Returning{Columns: returningColumns}).
-		Where("active_source IS NOT NULL AND active_source_expire <= ?", time.Now()).
-		Updates(map[string]interface{}{"active_source": sql.NullString{}, "active_source_expire": sql.NullTime{}})
-	if err := update.Error; err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	return db.q.DeactivateExpiredSources(ctx)
+}
+
+func (db *DB) DeactivateSource(userID int64) (*User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	user, err := db.q.DeactivateSource(ctx, userID)
+	if err != nil {
 		return nil, err
 	}
-
-	return users, nil
+	return &user, nil
 }
 
-func (db *DB) DeactivateSource(userID uint64) error {
-	return db.c.
-		Model(&User{}).
-		Where(&User{ID: userID}).
-		Updates(map[string]interface{}{"active_source": sql.NullString{}, "active_source_expire": sql.NullTime{}}).
-		Error
+func (db *DB) GetOutputs(userID int64) ([]Output, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	return db.q.GetOutputs(ctx, userID)
 }
 
-func (db *DB) GetOutputs(userID uint64) ([]Output, error) {
-	var outputs []Output
-	if err := db.c.Where(&Output{UserID: userID}).Find(&outputs).Error; err != nil {
-		return nil, err
-	}
-
-	return outputs, nil
-}
-
-func (db *DB) GetOutput(userID uint64, chatTitle string) (*Output, error) {
-	var output Output
-	if err := db.c.Where(&Output{UserID: userID, Title: chatTitle}).Take(&output).Error; err != nil {
+func (db *DB) GetOutput(userID int64, chatTitle string) (*Output, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	output, err := db.q.GetOutput(ctx, base.GetOutputParams{UserID: userID, Title: chatTitle})
+	if err != nil {
 		return nil, err
 	}
 
 	return &output, nil
 }
 
-func (db *DB) SetOutputActive(userID uint64, chatTitle string) error {
-	return db.c.Model(&Output{}).Where(&Output{UserID: userID, Title: chatTitle}).Update("is_active", true).Error
+func (db *DB) SetOutputActive(userID int64, chatTitle string) (*Output, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	output, err := db.q.SetOutputActive(ctx, base.SetOutputActiveParams{UserID: userID, Title: chatTitle})
+	if err != nil {
+		return nil, err
+	}
+	return &output, nil
 }
 
-func (db *DB) GetOrCreateOutput(userID uint64, chatID uint64, chatTitle string) (*Output, bool, error) {
-	var output Output
-	q := db.c.Where("user_id = ? AND title = ?", userID, chatTitle).Attrs(&Output{ChatID: chatID, Title: chatTitle, UserID: userID}).FirstOrCreate(&output)
-	return &output, q.RowsAffected == 1, q.Error
+func (db *DB) GetOrCreateOutput(userID int64, chatID int64, chatTitle string) (*Output, bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	output, err := db.q.GetOutput(ctx, base.GetOutputParams{UserID: userID, Title: chatTitle})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			output, err := db.q.CreateOutput(ctx, base.CreateOutputParams{UserID: userID, ChatID: chatID, Title: chatTitle})
+			if err != nil {
+				return nil, false, err
+			}
+			return &output, true, nil
+		}
+
+		return nil, false, err
+	}
+
+	return &output, false, nil
 }
 
-func (db *DB) DeleteOutput(userID uint64, chatTitle string) error {
-	return db.c.Delete(&Output{}, "user_id = ? AND title = ?", userID, chatTitle).Error
+func (db *DB) DeleteOutput(userID int64, chatTitle string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	err := db.q.DeleteOutput(ctx, base.DeleteOutputParams{UserID: userID, Title: chatTitle})
+	return err
+}
+
+func (db *DB) DEBUGCleanDB() error {
+	if err := db.q.CleanOutputs(context.Background()); err != nil {
+		return err
+	}
+	if err := db.q.CleanQuotesSources(context.Background()); err != nil {
+		return err
+	}
+
+	if err := db.q.CleanQuotesTags(context.Background()); err != nil {
+		return err
+	}
+
+	if err := db.q.CleanTags(context.Background()); err != nil {
+		return err
+	}
+
+	if err := db.q.CleanSources(context.Background()); err != nil {
+		return err
+	}
+
+	if err := db.q.CleanQuotes(context.TODO()); err != nil {
+		return err
+	}
+
+	if err := db.q.CleanUsers(context.Background()); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (db *DB) Close() error {

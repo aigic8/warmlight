@@ -2,6 +2,7 @@ package bot
 
 import (
 	"testing"
+	"time"
 
 	"github.com/aigic8/warmlight/bot/utils"
 	"github.com/aigic8/warmlight/db"
@@ -9,7 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const TEST_DB_URL = "file::memory:"
+const TEST_DB_URL = "postgresql://postgres:postgres@localhost:1616/warmlight_test"
+const DB_TIMEOUT = 5 * time.Second
 
 type reactNewUserTestCase struct {
 	Name      string
@@ -19,8 +21,8 @@ type reactNewUserTestCase struct {
 
 func TestReactNewUser(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint64 = 1234
-	var chatID uint64 = 1
+	var userID int64 = 1234
+	var chatID int64 = 1
 	firstName := "aigic8"
 	user, _, err := DB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
@@ -47,8 +49,8 @@ func TestReactNewUser(t *testing.T) {
 
 func TestReactDefaultNormal(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint64 = 1234
-	var chatID uint64 = 1
+	var userID int64 = 1234
+	var chatID int64 = 1
 	firstName := "aigic8"
 	user, _, err := DB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
@@ -68,9 +70,9 @@ func TestReactDefaultNormal(t *testing.T) {
 
 func TestReactDefaultWithOutput(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint64 = 1234
-	var userChatID uint64 = 1
-	var outputChatID uint64 = 2
+	var userID int64 = 1234
+	var userChatID int64 = 1
+	var outputChatID int64 = 2
 	firstName := "aigic8"
 	user, _, err := DB.GetOrCreateUser(userID, userChatID, firstName)
 	if err != nil {
@@ -88,7 +90,7 @@ func TestReactDefaultWithOutput(t *testing.T) {
 
 	h := Handlers{DB: DB}
 
-	updateText := "People who do crazy things are not necessarily crazy\nsources: The social animal, Elliot Aronson\n#sociology #psychology"
+	updateText := "People who do crazy things are not necessarily crazy\nsources: The social animal, Elliot Aronson\n#sociology #sociology"
 	update := makeTestMessageUpdate(int64(userID), firstName, updateText)
 	update.Message.Chat.ID = int64(userChatID)
 
@@ -132,8 +134,8 @@ type reactSetActiveSourceTestCase struct {
 
 func TestReactSetActiveSource(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint64 = 1234
-	var chatID uint64 = 1
+	var userID int64 = 1234
+	var chatID int64 = 1
 	firstName := "aigic8"
 	user, _, err := DB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
@@ -173,10 +175,10 @@ type reactAddOutputTestCase struct {
 
 func TestReactAddOutput(t *testing.T) {
 	DB := mustInitDB(TEST_DB_URL)
-	var userID uint64 = 1234
-	var userChatID uint64 = 1
+	var userID int64 = 1234
+	var userChatID int64 = 1
 	firstName := "aigic8"
-	var outputChatID uint64 = 10
+	var outputChatID int64 = 10
 	outputChatTitle := "My quotes"
 
 	user, _, err := DB.GetOrCreateUser(userID, userChatID, firstName)
@@ -215,12 +217,18 @@ func TestReactAddOutput(t *testing.T) {
 }
 
 func mustInitDB(URL string) *db.DB {
-	DB, err := db.NewDB(URL)
+	DB, err := db.NewDB(URL, DB_TIMEOUT)
 	if err != nil {
 		panic(err)
 	}
+
+	if err := DB.DEBUGCleanDB(); err != nil {
+		panic(err)
+	}
+
 	if err := DB.Init(); err != nil {
 		panic(err)
 	}
+
 	return DB
 }

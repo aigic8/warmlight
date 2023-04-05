@@ -71,7 +71,7 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 		return
 	}
 
-	user, userCreated, err := h.DB.GetOrCreateUser(uint64(update.Message.From.ID), uint64(update.Message.Chat.ID), update.Message.From.FirstName)
+	user, userCreated, err := h.DB.GetOrCreateUser(int64(update.Message.From.ID), int64(update.Message.Chat.ID), update.Message.From.FirstName)
 	if err != nil {
 		_, err = b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: update.Message.Chat.ID,
@@ -140,12 +140,12 @@ func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction
 		}
 	}
 
-	_, err = h.DB.CreateQuoteWithData(uint64(update.Message.From.ID), q.Text, q.MainSource, q.Tags, q.Sources)
+	_, err = h.DB.CreateQuoteWithData(int64(update.Message.From.ID), q.Text, q.MainSource, q.Tags, q.Sources)
 	if err != nil {
 		return u.Reaction{}, err
 	}
 
-	outputs, err := h.DB.GetOutputs(uint64(update.Message.From.ID))
+	outputs, err := h.DB.GetOutputs(int64(update.Message.From.ID))
 	if err != nil {
 		return u.Reaction{
 			Messages: []bot.SendMessageParams{
@@ -171,9 +171,9 @@ func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction
 func (h Handlers) reactNewUser(user *db.User, update *models.Update) (u.Reaction, error) {
 	var messageText string
 	if update.Message.Text == COMMAND_START {
-		messageText = strWelcomeToBot(user.FirstName)
+		messageText = strWelcomeToBot(user.Firstname)
 	} else {
-		messageText = strYourDataIsLost(user.FirstName)
+		messageText = strYourDataIsLost(user.Firstname)
 	}
 
 	return u.Reaction{
@@ -186,7 +186,7 @@ func (h Handlers) reactNewUser(user *db.User, update *models.Update) (u.Reaction
 func (h Handlers) reactAlreadyJoinedStart(user *db.User, update *models.Update) (u.Reaction, error) {
 	return u.Reaction{
 		Messages: []bot.SendMessageParams{
-			u.TextReplyToMessage(update.Message, strYouAreAlreadyJoined(user.FirstName)),
+			u.TextReplyToMessage(update.Message, strYouAreAlreadyJoined(user.Firstname)),
 		},
 	}, nil
 }
@@ -244,7 +244,7 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 		return u.Reaction{}, err
 	}
 
-	effected, err := h.DB.SetActiveSource(user.ID, args[0], activeSourceExpire)
+	_, effected, err := h.DB.SetActiveSource(user.ID, args[0], activeSourceExpire)
 	if err != nil {
 		return u.Reaction{}, err
 	}
@@ -287,7 +287,8 @@ func (h Handlers) reactAddOutput(user *db.User, update *models.Update) (u.Reacti
 		}, nil
 	}
 
-	if err := h.DB.SetOutputActive(user.ID, chatTitle); err != nil {
+	_, err = h.DB.SetOutputActive(user.ID, chatTitle)
+	if err != nil {
 		return u.Reaction{}, err
 	}
 
@@ -310,11 +311,11 @@ func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
 	adminChatMemeber := update.MyChatMember.NewChatMember.Administrator
 	ownerChatMember := update.MyChatMember.NewChatMember.Owner
 	if (adminChatMemeber != nil && adminChatMemeber.CanPostMessages) || ownerChatMember != nil {
-		if _, _, err := h.DB.GetOrCreateOutput(uint64(from.ID), uint64(chat.ID), chat.Title); err != nil {
+		if _, _, err := h.DB.GetOrCreateOutput(int64(from.ID), int64(chat.ID), chat.Title); err != nil {
 			return u.Reaction{}, err
 		}
 	} else {
-		if err := h.DB.DeleteOutput(uint64(from.ID), chat.Title); err != nil {
+		if err := h.DB.DeleteOutput(int64(from.ID), chat.Title); err != nil {
 			return u.Reaction{}, err
 		}
 	}
