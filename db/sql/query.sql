@@ -67,7 +67,7 @@ DELETE FROM quotes;
 DELETE FROM users;
 
 -- name: CreateQuote :one
-INSERT INTO quotes (user_id, text, main_source) VALUES ($1, $2, $3) RETURNING *;
+INSERT INTO quotes (user_id, text, main_source) VALUES ($1, $2, $3) RETURNING id, text, user_id, main_source, created_at, updated_at;
 
 -- name: GetOrCreateTag :one
 WITH created_id AS (
@@ -84,3 +84,6 @@ INSERT INTO quotes_tags (quote, tag) VALUES ($1, $2);
 
 -- name: CreateQuotesSources :exec
 INSERT INTO quotes_sources (quote, source) VALUES ($1, $2);
+
+-- name: SearchQuotes :many
+SELECT id, text, main_source, user_id, created_at, updated_at FROM quotes WHERE user_id = $1 AND text_tokens @@ TO_TSQUERY('english', $2) LIMIT $3;

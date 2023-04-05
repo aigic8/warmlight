@@ -467,6 +467,62 @@ func TestDBGetOutputs(t *testing.T) {
 	assert.Equal(t, outputChatTitle, outputs[0].Title)
 }
 
+type searchQuotesTestCase struct {
+	Name    string
+	Query   string
+	Results []string
+}
+
+func TestDBSearchQuotes(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	var userID int64 = 1234
+	var chatID int64 = 1
+	firstname := "aigic8"
+
+	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstname)
+	if err != nil {
+		panic(err)
+	}
+
+	q1Text := "people who do crazy things are not necessarily crazy"
+	q2Text := "Premature optimization is the root of all evil"
+	quotes := []struct {
+		Text   string
+		Source string
+	}{
+		{Text: q1Text, Source: "The social animal"},
+		{Text: q2Text, Source: "Donald Knuth"},
+	}
+
+	for _, quote := range quotes {
+		_, err := appDB.CreateQuoteWithData(userID, quote.Text, quote.Source, []string{}, []string{quote.Source})
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	testCases := []searchQuotesTestCase{
+		{Name: "normal", Query: "people & crazy", Results: []string{q1Text}},
+		{Name: "mainSource", Query: "Knuth", Results: []string{q2Text}},
+		{Name: "empty", Query: "umbrella", Results: []string{}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			result, err := appDB.SearchQuotes(userID, tc.Query, 10)
+			assert.Nil(t, err)
+
+			resultTexts := []string{}
+			for _, quote := range result {
+				resultTexts = append(resultTexts, quote.Text)
+			}
+
+			assert.ElementsMatch(t, tc.Results, resultTexts)
+		})
+	}
+
+}
+
 func mustInitDB(URL string) *DB {
 	appDB, err := NewDB(URL, DB_TIMEOUT)
 	if err != nil {

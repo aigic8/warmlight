@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
@@ -66,12 +67,42 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 		if _, err := h.reactMyChatMember(update); err != nil {
 			h.l.Error().Err(err).Msg("reacting to chat member update")
 		}
+		return
 	}
+
+	if update.InlineQuery != nil {
+		results, err := h.reactInlineQuery(update)
+		if err != nil {
+			h.l.Error().Err(err).Msg("reacting to inline query")
+			return
+		}
+
+		if len(results) == 0 {
+			return
+		}
+
+		success, err := b.AnswerInlineQuery(ctx, &bot.AnswerInlineQueryParams{
+			InlineQueryID: update.InlineQuery.ID,
+			IsPersonal:    true,
+			Results:       results,
+		})
+		if err != nil {
+			h.l.Error().Err(err).Msg("answering inline query")
+			return
+		}
+		if !success {
+			h.l.Error().Msg("answering inline query false success")
+			return
+		}
+
+		return
+	}
+
 	if update.Message == nil || update.Message.From == nil || update.Message.From.IsBot || update.Message.Chat.Type != "private" {
 		return
 	}
 
-	user, userCreated, err := h.db.GetOrCreateUser(int64(update.Message.From.ID), int64(update.Message.Chat.ID), update.Message.From.FirstName)
+	user, userCreated, err := h.db.GetOrCreateUser(update.Message.From.ID, update.Message.Chat.ID, update.Message.From.FirstName)
 	if err != nil {
 		_, err = b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: update.Message.Chat.ID,
@@ -321,4 +352,50 @@ func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
 	}
 
 	return u.Reaction{}, nil
+}
+
+func (h Handlers) reactInlineQuery(update *models.Update) ([]models.InlineQueryResult, error) {
+	// TODO test reactInlineQuery
+	if update.InlineQuery.From.IsBot {
+		return nil, nil
+	}
+
+	user, err := h.db.GetUser(update.InlineQuery.From.ID)
+	if err != nil {
+		if !errors.Is(err, db.ErrNotFound) {
+			return nil, err
+		}
+		return nil, nil
+	}
+
+	query := strings.Join(strings.Fields(update.InlineQuery.Query), " & ")
+	// https://core.telegram.org/bots/api#answerinlinequery no more than 50 results per query is allowed
+	quotes, err := h.db.SearchQuotes(user.ID, query, 50)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO add tags
+	results := make([]models.InlineQueryResult, len(quotes))
+	for _, q := range quotes {
+		title := "No Source"
+		description := q.Text
+		if len(q.Text) > 40 {
+			description = q.Text[:37] + "..."
+		}
+		if q.MainSource.Valid {
+			title = q.MainSource.String
+		}
+		results = append(results, &models.InlineQueryResultArticle{
+			ID:          fmt.Sprintf("%d", q.ID),
+			Title:       title,
+			Description: description,
+			InputMessageContent: models.InputTextMessageContent{
+				MessageText: strQuote(&u.Quote{Text: q.Text, MainSource: q.MainSource.String}),
+				ParseMode:   models.ParseModeMarkdown,
+			},
+		})
+	}
+
+	return results, nil
 }
