@@ -25,7 +25,7 @@ const LOG_PATH = "log/warmlight.log"
 
 // TODO add support for filtering HASHTAGS and SOURCES for different outputs
 
-func NewBot(appDB *db.DB, token string) error {
+func RunBot(appDB *db.DB, token string) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
@@ -51,7 +51,7 @@ func NewBot(appDB *db.DB, token string) error {
 	}
 	deactivator.Schedule(DEACTIVATOR_INTERVAL_MINS)
 
-	b.Start(ctx)
+	b.StartWebhook(ctx)
 
 	return nil
 }
