@@ -45,7 +45,7 @@ func RunBot(appDB *db.DB, token string, config *Config) error {
 		bot.WithDefaultHandler(h.updateHandler),
 	}
 
-	b, err := bot.New(os.Getenv(token), opts...)
+	b, err := bot.New(token, opts...)
 	if err != nil {
 		return err
 	}
