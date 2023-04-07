@@ -1,15 +1,17 @@
+# copy and rename this file to 'warmlight.toml' and change it to your need
+
 [db]
-url = "postgresql://postgres:postgres@localhost:1616/warmlight_test"
-timeoutMs = 3000
+url = "postgresql://postgres:postgres@localhost:1616/warmlight" # database URL, only postgresql is supported
+timeoutMs = 3000 # database connection timeout
 
 [bot]
-token = "..."
-webhookUrl = "https://mysite.com/webhook.url"
-certFile = "certfile.cert"
-privKeyFile = "priv.key"
-logPath = "log/warmlight.log"
+token = "..." # telegram bot token
+webhookUrl = "https://mysite.com/webhook.url" # URL to set webhook for in telegram
+certFile = "certfile.cert" # path to TLS certificate file
+privKeyFile = "priv.key" # path to TLS private key
+logPath = "log/warmlight.log" # log file path, if you are using docker, use volumes to be able to see logs from outside
 isDev = true
-defaultActiveSourceTimeoutMins = 60
-deactivatorIntervalMins = 10
-port = 443
+defaultActiveSourceTimeoutMins = 60 # default source expiration time if not passed by user
+deactivatorIntervalMins = 10 # interval in which sources are checked for expired sources
+port = 443 # also change Dockerfile if you want to change port
 
