@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	u "github.com/aigic8/warmlight/bot/utils"
-	"github.com/aigic8/warmlight/db"
+	"github.com/aigic8/warmlight/internal/db"
+	u "github.com/aigic8/warmlight/pkg/bot/utils"
 	"github.com/go-co-op/gocron"
 	"github.com/go-telegram/bot"
 	"github.com/rs/zerolog"

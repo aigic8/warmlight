@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aigic8/warmlight/bot/utils"
-	"github.com/aigic8/warmlight/db"
+	"github.com/aigic8/warmlight/internal/db"
+	"github.com/aigic8/warmlight/pkg/bot/utils"
 	"github.com/go-telegram/bot/models"
 	"github.com/stretchr/testify/assert"
 )

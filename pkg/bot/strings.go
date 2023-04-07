@@ -3,7 +3,7 @@ package bot
 import (
 	"fmt"
 
-	"github.com/aigic8/warmlight/bot/utils"
+	"github.com/aigic8/warmlight/pkg/bot/utils"
 )
 
 // Commands

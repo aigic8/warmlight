@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/aigic8/warmlight/db/base"
+	"github.com/aigic8/warmlight/internal/db/base"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )

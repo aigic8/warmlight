@@ -3,9 +3,9 @@ package main
 import (
 	"time"
 
-	"github.com/aigic8/warmlight/bot"
-	"github.com/aigic8/warmlight/db"
-	"github.com/aigic8/warmlight/utils"
+	"github.com/aigic8/warmlight/internal/db"
+	"github.com/aigic8/warmlight/pkg/bot"
+	"github.com/aigic8/warmlight/pkg/utils"
 )
 
 func main() {
