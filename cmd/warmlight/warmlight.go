@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path"
 	"time"
 
 	"github.com/aigic8/warmlight/internal/db"
@@ -9,7 +11,12 @@ import (
 )
 
 func main() {
-	config, err := utils.LoadConfig("warmlight.sample.toml")
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	config, err := utils.LoadConfig(path.Join(cwd, "warmlight.toml"))
 	if err != nil {
 		panic(err)
 	}
@@ -22,6 +29,9 @@ func main() {
 	botConfig := &bot.Config{
 		IsDev:                          config.Bot.IsDev,
 		LogPath:                        config.Bot.LogPath,
+		WebhookAddress:                 config.Bot.WebhookURL,
+		CertFilePath:                   config.Bot.CertFilePath,
+		PrivKeyFilePath:                config.Bot.PrivKeyFilePath,
 		DefaultActiveSourceTimeoutMins: config.Bot.DefaultActiveSourceTimeoutMins,
 		DeactivatorIntervalMins:        config.Bot.DeactivatorIntervalMins,
 	}

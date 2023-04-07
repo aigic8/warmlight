@@ -4,6 +4,9 @@ timeoutMs = 3000
 
 [bot]
 token = "..."
+webhookUrl = "https://mysite.com/webhook.url"
+certFile = "certfile.cert"
+privKeyFile = "priv.key"
 logPath = "log/warmlight.log"
 isDev = true
 defaultActiveSourceTimeoutMins = 60

@@ -21,6 +21,9 @@ type (
 
 	BotConfig struct {
 		Token                          string `toml:"token" validate:"required"`
+		WebhookURL                     string `toml:"webhookUrl" validate:"required"`
+		CertFilePath                   string `toml:"certFile" validate:"required"`
+		PrivKeyFilePath                string `toml:"priveKeyFile" validate:"required"`
 		LogPath                        string `toml:"logPath" validate:"required"`
 		IsDev                          bool   `toml:"isDev"`
 		DefaultActiveSourceTimeoutMins int    `toml:"defaultActiveSourceTimeoutMins" validate:"gte=0"`

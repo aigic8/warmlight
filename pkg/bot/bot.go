@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -18,6 +19,9 @@ import (
 )
 
 type Config struct {
+	WebhookAddress                 string
+	CertFilePath                   string
+	PrivKeyFilePath                string
 	IsDev                          bool
 	LogPath                        string
 	DefaultActiveSourceTimeoutMins int
@@ -52,7 +56,19 @@ func RunBot(appDB *db.DB, token string, config *Config) error {
 	}
 	deactivator.Schedule(config.DeactivatorIntervalMins)
 
-	b.StartWebhook(ctx)
+	go b.StartWebhook(ctx)
+
+	_, err = b.SetWebhook(ctx, &bot.SetWebhookParams{
+		URL: config.WebhookAddress,
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	if err = http.ListenAndServeTLS(config.WebhookAddress, config.CertFilePath, config.PrivKeyFilePath, b.WebhookHandler()); err != nil {
+		panic(err)
+	}
 
 	return nil
 }
