@@ -1,4 +1,7 @@
 #!/bin/sh
+
+set -e 
+
 rm -rf migrate-files migrate.linux-amd64.tar.gz
 wget https://github.com/golang-migrate/migrate/releases/download/v4.15.2/migrate.linux-amd64.tar.gz
 mkdir migrate-files
