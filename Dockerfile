@@ -2,6 +2,8 @@ FROM golang:alpine
 
 RUN mkdir /app
 
+WORKDIR /app
+
 ADD ./cmd /app/cmd
 ADD ./internal /app/internal
 ADD ./migrations /app/migrations
