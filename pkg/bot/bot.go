@@ -26,6 +26,7 @@ type Config struct {
 	LogPath                        string
 	DefaultActiveSourceTimeoutMins int
 	DeactivatorIntervalMins        int
+	Port                           int
 }
 
 // TODO add support for filtering HASHTAGS and SOURCES for different outputs
@@ -41,8 +42,11 @@ func RunBot(appDB *db.DB, token string, config *Config) error {
 
 	h := Handlers{db: appDB, l: l, defaultActiveSourceTimeoutMins: config.DefaultActiveSourceTimeoutMins}
 	opts := []bot.Option{
-		bot.WithDebug(),
 		bot.WithDefaultHandler(h.updateHandler),
+	}
+
+	if config.IsDev {
+		opts = append(opts, bot.WithDebug())
 	}
 
 	b, err := bot.New(token, opts...)
@@ -66,7 +70,7 @@ func RunBot(appDB *db.DB, token string, config *Config) error {
 		panic(err)
 	}
 
-	if err = http.ListenAndServeTLS(config.WebhookAddress, config.CertFilePath, config.PrivKeyFilePath, b.WebhookHandler()); err != nil {
+	if err = http.ListenAndServeTLS(fmt.Sprintf(":%d", config.Port), config.CertFilePath, config.PrivKeyFilePath, b.WebhookHandler()); err != nil {
 		panic(err)
 	}
 

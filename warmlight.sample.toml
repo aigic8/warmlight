@@ -11,4 +11,5 @@ logPath = "log/warmlight.log"
 isDev = true
 defaultActiveSourceTimeoutMins = 60
 deactivatorIntervalMins = 10
+port = 443
 

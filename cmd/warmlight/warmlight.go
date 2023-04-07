@@ -34,6 +34,7 @@ func main() {
 		PrivKeyFilePath:                config.Bot.PrivKeyFilePath,
 		DefaultActiveSourceTimeoutMins: config.Bot.DefaultActiveSourceTimeoutMins,
 		DeactivatorIntervalMins:        config.Bot.DeactivatorIntervalMins,
+		Port:                           config.Bot.Port,
 	}
 
 	if err := bot.RunBot(db, config.Bot.Token, botConfig); err != nil {

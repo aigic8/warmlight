@@ -28,12 +28,14 @@ type (
 		IsDev                          bool   `toml:"isDev"`
 		DefaultActiveSourceTimeoutMins int    `toml:"defaultActiveSourceTimeoutMins" validate:"gte=0"`
 		DeactivatorIntervalMins        int    `toml:"deactivatorIntervalMins" validate:"gte=0"`
+		Port                           int    `toml:"port" validate:"gte=0"`
 	}
 )
 
 const DEFAULT_ACTIVE_SOURCE_TIMEOUT = 60
 const DEFAULT_DEACTIVATOR_INTERVAL_MINS = 10
 const DEFAULT_DB_TIMEOUT_MS = 5000
+const DEFAULT_PORT = 443
 
 func LoadConfig(configPath string) (*Config, error) {
 	// TODO test LoadConfig
@@ -68,6 +70,10 @@ func LoadConfig(configPath string) (*Config, error) {
 
 	if config.Db.TimeoutMs == 0 {
 		config.Db.TimeoutMs = DEFAULT_DB_TIMEOUT_MS
+	}
+
+	if config.Bot.Port == 0 {
+		config.Bot.Port = DEFAULT_PORT
 	}
 
 	return &config, nil
