@@ -36,5 +36,5 @@ func getLoggerOuput(dev bool, logPath string) (io.Writer, error) {
 		return nil, err
 	}
 
-	return os.Open(logPath)
+	return os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0777)
 }
