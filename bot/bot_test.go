@@ -11,6 +11,7 @@ import (
 )
 
 const TEST_DB_URL = "postgresql://postgres:postgres@localhost:1616/warmlight_test"
+const TEST_DEFAULT_ACTIVE_SOURCE_TIMEOUT_MINS = 60
 const DB_TIMEOUT = 5 * time.Second
 
 type reactNewUserTestCase struct {
@@ -135,10 +136,10 @@ func TestReactSetActiveSource(t *testing.T) {
 		panic(err)
 	}
 
-	h := Handlers{db: appDB}
+	h := Handlers{db: appDB, defaultActiveSourceTimeoutMins: TEST_DEFAULT_ACTIVE_SOURCE_TIMEOUT_MINS}
 	testCases := []reactSetActiveSourceTestCase{
 		{Name: "normal", Text: COMMAND_SET_ACTIVE_SOURCE + " The social animal, 20", Reply: strActiveSourceIsSet("The social animal", 20)},
-		{Name: "withoutTimeout", Text: COMMAND_SET_ACTIVE_SOURCE + " The social animal", Reply: strActiveSourceIsSet("The social animal", DEFAULT_ACTIVE_SOURCE_TIMEOUT)},
+		{Name: "withoutTimeout", Text: COMMAND_SET_ACTIVE_SOURCE + " The social animal", Reply: strActiveSourceIsSet("The social animal", TEST_DEFAULT_ACTIVE_SOURCE_TIMEOUT_MINS)},
 		{Name: "malformed", Text: COMMAND_SET_ACTIVE_SOURCE + " The, social, animal", Reply: strMalformedSetActiveSource},
 		{Name: "empty", Text: COMMAND_SET_ACTIVE_SOURCE, Reply: strMalformedSetActiveSource},
 		{Name: "sourceDoesNotExist", Text: COMMAND_SET_ACTIVE_SOURCE + " Elliot Aronson", Reply: strSourceDoesExist("Elliot Aronson")},

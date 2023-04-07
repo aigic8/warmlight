@@ -5,20 +5,28 @@ import (
 
 	"github.com/aigic8/warmlight/bot"
 	"github.com/aigic8/warmlight/db"
+	"github.com/aigic8/warmlight/utils"
 )
 
-// FIXME use configuration file
-const DB_URL = "postgresql://postgres:postgres@localhost:1616/warmlight_test"
-const DB_TIMEOUT = 5 * time.Second
-const TELEGRAM_TOKEN = ""
-
 func main() {
-	db, err := db.NewDB(DB_URL, DB_TIMEOUT)
+	config, err := utils.LoadConfig("warmlight.sample.toml")
 	if err != nil {
 		panic(err)
 	}
 
-	if err := bot.RunBot(db, TELEGRAM_TOKEN); err != nil {
+	db, err := db.NewDB(config.Db.URL, time.Duration(config.Db.TimeoutMs)*time.Millisecond)
+	if err != nil {
+		panic(err)
+	}
+
+	botConfig := &bot.Config{
+		IsDev:                          config.Bot.IsDev,
+		LogPath:                        config.Bot.LogPath,
+		DefaultActiveSourceTimeoutMins: config.Bot.DefaultActiveSourceTimeoutMins,
+		DeactivatorIntervalMins:        config.Bot.DeactivatorIntervalMins,
+	}
+
+	if err := bot.RunBot(db, config.Bot.Token, botConfig); err != nil {
 		panic(err)
 	}
 }

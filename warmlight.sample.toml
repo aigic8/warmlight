@@ -1,0 +1,11 @@
+[db]
+url = "postgresql://postgres:postgres@localhost:1616/warmlight_test"
+timeoutMs = 3000
+
+[bot]
+token = "..."
+logPath = "log/warmlight.log"
+isDev = true
+defaultActiveSourceTimeoutMins = 60
+deactivatorIntervalMins = 10
+

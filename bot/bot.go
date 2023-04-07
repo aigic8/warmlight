@@ -17,24 +17,25 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// TODO use as config to newBot
-const DEFAULT_ACTIVE_SOURCE_TIMEOUT = 60
-const DEACTIVATOR_INTERVAL_MINS = 10
-const IS_DEV = true
-const LOG_PATH = "log/warmlight.log"
+type Config struct {
+	IsDev                          bool
+	LogPath                        string
+	DefaultActiveSourceTimeoutMins int
+	DeactivatorIntervalMins        int
+}
 
 // TODO add support for filtering HASHTAGS and SOURCES for different outputs
 
-func RunBot(appDB *db.DB, token string) error {
+func RunBot(appDB *db.DB, token string, config *Config) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	l, err := u.NewBotLogger(IS_DEV, LOG_PATH)
+	l, err := u.NewBotLogger(config.IsDev, config.LogPath)
 	if err != nil {
 		return err
 	}
 
-	h := Handlers{db: appDB, l: l}
+	h := Handlers{db: appDB, l: l, defaultActiveSourceTimeoutMins: config.DefaultActiveSourceTimeoutMins}
 	opts := []bot.Option{
 		bot.WithDebug(),
 		bot.WithDefaultHandler(h.updateHandler),
@@ -45,11 +46,11 @@ func RunBot(appDB *db.DB, token string) error {
 		return err
 	}
 
-	deactivator, err := NewSourceDeactiver(appDB, b, ctx)
+	deactivator, err := NewSourceDeactiver(appDB, b, config.IsDev, config.LogPath, ctx)
 	if err != nil {
 		return err
 	}
-	deactivator.Schedule(DEACTIVATOR_INTERVAL_MINS)
+	deactivator.Schedule(config.DeactivatorIntervalMins)
 
 	b.StartWebhook(ctx)
 
@@ -57,8 +58,9 @@ func RunBot(appDB *db.DB, token string) error {
 }
 
 type Handlers struct {
-	db *db.DB
-	l  zerolog.Logger
+	db                             *db.DB
+	l                              zerolog.Logger
+	defaultActiveSourceTimeoutMins int
 }
 
 func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -244,7 +246,7 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 		return malformedReaction, nil
 	}
 
-	activeSourceTimeoutInt := DEFAULT_ACTIVE_SOURCE_TIMEOUT
+	activeSourceTimeoutInt := h.defaultActiveSourceTimeoutMins
 	var err error
 	if argsLen == 2 {
 		activeSourceTimeoutInt, err = strconv.Atoi(args[1])

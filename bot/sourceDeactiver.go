@@ -19,8 +19,8 @@ type SourceDeactiver struct {
 	l         zerolog.Logger
 }
 
-func NewSourceDeactiver(db *db.DB, b *bot.Bot, ctx context.Context) (*SourceDeactiver, error) {
-	l, err := u.NewSourceDeactiverLogger(IS_DEV, LOG_PATH)
+func NewSourceDeactiver(db *db.DB, b *bot.Bot, isDev bool, logPath string, ctx context.Context) (*SourceDeactiver, error) {
+	l, err := u.NewSourceDeactiverLogger(isDev, logPath)
 	if err != nil {
 		return nil, err
 	}
