@@ -27,12 +27,13 @@ You need to copy `warmlight.sample.toml` (or rename it) to `warmlight.toml` and 
 Also make sure to set `isDev` to `false` if you are running in production.
 
 ### Using with docker and docker-compose (Recommended)
-You need to [install Docker](https://docs.docker.com/engine/install/) and docker-compose. You can use this docker-compose file and modify it to your need:
+You need to [install Docker](https://docs.docker.com/engine/install/) and docker-compose. You can use this `docker-compose.yml` file and modify it to your need:
 ```yaml
 version: "3.9"
 services:
   warmlight:
     build: ./warmlight # or wherever you have cloned warmlight
+    restart: always
     ports:
       - 443:443 # make sure to change the container port if you've changed it in 'warmlight.toml'
     links:
