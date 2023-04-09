@@ -193,12 +193,12 @@ func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction
 		}
 	}
 
-	_, err = h.db.CreateQuoteWithData(int64(update.Message.From.ID), q.Text, q.MainSource, q.Tags, q.Sources)
+	_, err = h.db.CreateQuoteWithData(update.Message.From.ID, q.Text, q.MainSource, q.Tags, q.Sources)
 	if err != nil {
 		return u.Reaction{}, err
 	}
 
-	outputs, err := h.db.GetOutputs(int64(update.Message.From.ID))
+	outputs, err := h.db.GetOutputs(update.Message.From.ID)
 	if err != nil {
 		return u.Reaction{
 			Messages: []bot.SendMessageParams{

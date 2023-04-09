@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aigic8/warmlight/pkg/bot/utils"
+	"github.com/go-telegram/bot"
 )
 
 // Commands
@@ -55,12 +56,25 @@ func strOutputIsSet(chatTitle string) string {
 	return fmt.Sprintf("Channel '%s' is now active!", chatTitle)
 }
 
-// IMPORTANT needs support Markdown parsemode
+// IMPORTANT needs support Markdown parseMode
 func strQuote(q *utils.Quote) string {
-	// TODO find a more efficient way
-	var tagsStr string
-	for _, tag := range q.Tags {
-		tagsStr += "#" + tag + " "
+	message := bot.EscapeMarkdown(q.Text)
+
+	if q.MainSource != "" {
+		message += "\n" + bot.EscapeMarkdown(q.MainSource)
 	}
-	return fmt.Sprintf("%s\n**%s**\n%s", q.Text, q.MainSource, tagsStr)
+
+	if q.Tags != nil && len(q.Tags) != 0 {
+		// TODO find a more efficient way
+		tagsStr := ""
+		if q.Tags != nil && len(q.Tags) != 0 {
+			for _, tag := range q.Tags {
+				tagsStr += "#" + tag + " "
+			}
+		}
+
+		message += "\n" + bot.EscapeMarkdown(tagsStr)
+	}
+
+	return message
 }
