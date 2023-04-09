@@ -40,7 +40,7 @@ func TestDBGetOrCreateUser(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, isCreated)
 	assert.Equal(t, user.ID, ID)
-	assert.Equal(t, user.Firstname, firstName)
+	assert.Equal(t, user.FirstName, firstName)
 
 	user2, isCreated2, err := appDB.GetOrCreateUser(ID, chatID, firstName)
 	assert.Nil(t, err)
@@ -72,10 +72,10 @@ func TestDBCreateSourceAlreadyExist(t *testing.T) {
 	defer appDB.Close()
 	var userID int64 = 1234
 	var chatID int64 = 1
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 	sourceName := "The social animal"
 
-	user, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstname)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -94,10 +94,10 @@ func TestDBGetSource(t *testing.T) {
 	defer appDB.Close()
 	var userID int64 = 1234
 	var chatID int64 = 1
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 	sourceName := "The social animal"
 
-	user, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstname)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -117,10 +117,10 @@ func TestDBGetSourceErrDoesNotFound(t *testing.T) {
 	defer appDB.Close()
 	var userID int64 = 1234
 	var chatID int64 = 1
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 	sourceName := "The social animal"
 
-	user, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstname)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -134,12 +134,12 @@ func TestDBSetActiveSourceNormal(t *testing.T) {
 	appDB := mustInitDB(TEST_DB_URL)
 	defer appDB.Close()
 	var userID int64 = 1234
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 	var chatID int64 = 1
 	sourceName := "The social animal"
 	activeSourceExpire := time.Now().Add(time.Minute * 5)
 
-	user, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstname)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -159,11 +159,11 @@ func TestDBSetActiveSourceNotExist(t *testing.T) {
 	defer appDB.Close()
 	var userID int64 = 1234
 	var chatID int64 = 1
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 	sourceName := "The social animal"
 	activeSourceExpire := time.Now().Add(time.Minute * 5)
 
-	_, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstname)
+	_, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -178,11 +178,11 @@ func TestDBDeactivateExpiredSources(t *testing.T) {
 	defer appDB.Close()
 	var userID int64 = 1234
 	var chatID int64 = 1
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 	sourceName := "The social animal"
 	activeSourceExpire := time.Now().Add(time.Minute * -5)
 
-	_, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstname)
+	_, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -199,7 +199,7 @@ func TestDBDeactivateExpiredSources(t *testing.T) {
 	users, err := appDB.DeactivateExpiredSources()
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(users))
-	assert.Equal(t, userFirstname, users[0].Firstname)
+	assert.Equal(t, userFirstName, users[0].FirstName)
 	assert.Equal(t, userID, users[0].ID)
 	assert.Equal(t, chatID, users[0].ChatID)
 
@@ -217,11 +217,11 @@ func TestDBDeactivateSource(t *testing.T) {
 	defer appDB.Close()
 	var userID int64 = 1234
 	var chatID int64 = 1
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 	sourceName := "The social animal"
 	activeSourceExpire := time.Now().Add(time.Hour * 5)
 
-	_, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstname)
+	_, _, err := appDB.GetOrCreateUser(userID, chatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -238,7 +238,7 @@ func TestDBDeactivateSource(t *testing.T) {
 	_, err = appDB.DeactivateSource(userID)
 	assert.Nil(t, err)
 
-	user, created, err := appDB.GetOrCreateUser(userID, chatID, userFirstname)
+	user, created, err := appDB.GetOrCreateUser(userID, chatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -281,9 +281,9 @@ func TestDBGetOrCreateOutputNormal(t *testing.T) {
 	var outputChatID int64 = 10
 	outputChatTitle := "My quotes"
 
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 
-	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstname)
+	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -303,9 +303,9 @@ func TestDBGetOrCreateOutputAlreadyCreated(t *testing.T) {
 	var outputChatID int64 = 10
 	outputChatTitle := "My quotes"
 
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 
-	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstname)
+	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -332,9 +332,9 @@ func TestDBGetOutputNormal(t *testing.T) {
 	var outputChatID int64 = 10
 	outputChatTitle := "My quotes"
 
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 
-	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstname)
+	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -362,9 +362,9 @@ func TestDBSetOutputActiveNormal(t *testing.T) {
 	var outputChatID int64 = 10
 	outputChatTitle := "My quotes"
 
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 
-	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstname)
+	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -396,9 +396,9 @@ func TestDBDeleteOutputNormal(t *testing.T) {
 	var outputChatID int64 = 10
 	outputChatTitle := "My quotes"
 
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 
-	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstname)
+	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -427,9 +427,9 @@ func TestDBDeleteOutputNotExist(t *testing.T) {
 	var userChatID int64 = 1
 	outputChatTitle := "My quotes"
 
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 
-	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstname)
+	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -444,9 +444,9 @@ func TestDBGetOutputs(t *testing.T) {
 	var outputChatID int64 = 10
 	outputChatTitle := "My quotes"
 
-	userFirstname := "aigic8"
+	userFirstName := "aigic8"
 
-	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstname)
+	_, _, err := appDB.GetOrCreateUser(userID, userChatID, userFirstName)
 	if err != nil {
 		panic(err)
 	}
@@ -477,9 +477,9 @@ func TestDBSearchQuotes(t *testing.T) {
 	appDB := mustInitDB(TEST_DB_URL)
 	var userID int64 = 1234
 	var chatID int64 = 1
-	firstname := "aigic8"
+	firstName := "aigic8"
 
-	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstname)
+	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}

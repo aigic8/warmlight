@@ -4,7 +4,7 @@
 SELECT * FROM users WHERE id = $1;
 
 -- name: CreateUser :one
-INSERT INTO users (id, chat_id, firstname) VALUES ($1, $2, $3) RETURNING *;
+INSERT INTO users (id, chat_id, first_name) VALUES ($1, $2, $3) RETURNING *;
 
 -- name: CreateSource :one
 INSERT INTO sources (user_id, name) VALUES ($1, $2) RETURNING *;
@@ -71,7 +71,7 @@ WITH created_id AS (
   INSERT INTO tags (user_id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id
 ) SELECT id FROM created_id UNION ALL SELECT id FROM tags WHERE user_id = $1 AND name = $2 LIMIT 1;
 
--------- ASOSIATIONS ---------
+-------- ASSOCIATIONS ---------
 
 -- name: CreateQuotesTags :exec
 INSERT INTO quotes_tags (quote, tag) VALUES ($1, $2);

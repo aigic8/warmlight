@@ -34,9 +34,9 @@ func TestParseQuote(t *testing.T) {
 
 	withoutSourceTestCase := parseQuoteTestCase{
 		Name: "withoutSource",
-		Text: "The person who is easiest to brainwash is the person whose beliefes are based on slogans that have never been seriously tested. \n #sociology",
+		Text: "The person who is easiest to brainwash is the person whose beliefs are based on slogans that have never been seriously tested. \n #sociology",
 		Quote: &Quote{
-			Text:       "The person who is easiest to brainwash is the person whose beliefes are based on slogans that have never been seriously tested.",
+			Text:       "The person who is easiest to brainwash is the person whose beliefs are based on slogans that have never been seriously tested.",
 			MainSource: "",
 			Tags:       []string{"sociology"},
 			Sources:    []string{},

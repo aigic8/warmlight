@@ -10,7 +10,7 @@ import (
 )
 
 func NewBotLogger(dev bool, logPath string) (zerolog.Logger, error) {
-	output, err := getLoggerOuput(dev, logPath)
+	output, err := getLoggerOutput(dev, logPath)
 	if err != nil {
 		return zerolog.New(os.Stderr).With().Timestamp().Str("part", "bot").Logger(), err
 	}
@@ -18,14 +18,14 @@ func NewBotLogger(dev bool, logPath string) (zerolog.Logger, error) {
 }
 
 func NewSourceDeactiverLogger(dev bool, logPath string) (zerolog.Logger, error) {
-	output, err := getLoggerOuput(dev, logPath)
+	output, err := getLoggerOutput(dev, logPath)
 	if err != nil {
 		return zerolog.New(os.Stderr).With().Timestamp().Str("part", "deactiver").Logger(), err
 	}
 	return zerolog.New(output).With().Timestamp().Str("part", "bot").Logger(), nil
 }
 
-func getLoggerOuput(dev bool, logPath string) (io.Writer, error) {
+func getLoggerOutput(dev bool, logPath string) (io.Writer, error) {
 	if dev {
 		return zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}, nil
 	}

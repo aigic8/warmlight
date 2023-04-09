@@ -13,7 +13,7 @@ WarmLight is a Telegram bot for creating and using databases of quotes.
 ### What you need
 To be able to use this bot, you need:
 - a VPS to run your bot
-- a domain name (technically it is not nessecery, so in future versions it may not be needed)
+- a domain name (technically it is not necessary, so in future versions it may not be needed)
 
 ### Creating a bot in Telegram
 First you need to create a bot using [Bot Father](t.me/botfather). You need to get your bot token and make save it somewhere safe. Make sure also to activate inline bot functionality for bot in Bot Father. 

@@ -224,9 +224,9 @@ func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction
 func (h Handlers) reactNewUser(user *db.User, update *models.Update) (u.Reaction, error) {
 	var messageText string
 	if update.Message.Text == COMMAND_START {
-		messageText = strWelcomeToBot(user.Firstname)
+		messageText = strWelcomeToBot(user.FirstName)
 	} else {
-		messageText = strYourDataIsLost(user.Firstname)
+		messageText = strYourDataIsLost(user.FirstName)
 	}
 
 	return u.Reaction{
@@ -239,13 +239,13 @@ func (h Handlers) reactNewUser(user *db.User, update *models.Update) (u.Reaction
 func (h Handlers) reactAlreadyJoinedStart(user *db.User, update *models.Update) (u.Reaction, error) {
 	return u.Reaction{
 		Messages: []bot.SendMessageParams{
-			u.TextReplyToMessage(update.Message, strYouAreAlreadyJoined(user.Firstname)),
+			u.TextReplyToMessage(update.Message, strYouAreAlreadyJoined(user.FirstName)),
 		},
 	}, nil
 }
 
 func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.Reaction, error) {
-	// TODO what heppens if we already have an active source?
+	// TODO what happens if we already have an active source?
 	text := strings.TrimSpace(strings.TrimPrefix(update.Message.Text, COMMAND_SET_ACTIVE_SOURCE))
 	argsRaw := strings.Split(text, ",")
 	args := make([]string, 0, len(argsRaw))
@@ -353,7 +353,7 @@ func (h Handlers) reactAddOutput(user *db.User, update *models.Update) (u.Reacti
 }
 
 func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
-	// FIXME test reactMyChatMemeber
+	// FIXME test reactMyChatMember
 	chat := update.MyChatMember.Chat
 	from := update.MyChatMember.From
 	// TODO support groups
@@ -361,9 +361,9 @@ func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
 		return u.Reaction{}, nil
 	}
 
-	adminChatMemeber := update.MyChatMember.NewChatMember.Administrator
+	adminChatMember := update.MyChatMember.NewChatMember.Administrator
 	ownerChatMember := update.MyChatMember.NewChatMember.Owner
-	if (adminChatMemeber != nil && adminChatMemeber.CanPostMessages) || ownerChatMember != nil {
+	if (adminChatMember != nil && adminChatMember.CanPostMessages) || ownerChatMember != nil {
 		if _, _, err := h.db.GetOrCreateOutput(int64(from.ID), int64(chat.ID), chat.Title); err != nil {
 			return u.Reaction{}, err
 		}

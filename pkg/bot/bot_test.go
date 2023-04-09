@@ -83,12 +83,12 @@ func TestReactDefaultWithOutput(t *testing.T) {
 		panic(err)
 	}
 
-	_, createdOuput, err := appDB.GetOrCreateOutput(userID, outputChatID, "salam")
+	_, createdOutput, err := appDB.GetOrCreateOutput(userID, outputChatID, "salam")
 	if err != nil {
 		panic(err)
 	}
 
-	if !createdOuput {
+	if !createdOutput {
 		panic(err)
 	}
 
@@ -98,7 +98,7 @@ func TestReactDefaultWithOutput(t *testing.T) {
 	update := makeTestMessageUpdate(int64(userID), firstName, updateText)
 	update.Message.Chat.ID = int64(userChatID)
 
-	qouteObj, err := utils.ParseQuote(updateText)
+	quoteObj, err := utils.ParseQuote(updateText)
 	if err != nil {
 		panic(err)
 	}
@@ -108,10 +108,10 @@ func TestReactDefaultWithOutput(t *testing.T) {
 	assert.Equal(t, len(r.Messages), 2)
 	if r.Messages[0].ChatID.(int64) == int64(userChatID) {
 		assert.Equal(t, r.Messages[0].Text, strQuoteAdded)
-		assert.Equal(t, r.Messages[1].Text, strQuote(qouteObj))
+		assert.Equal(t, r.Messages[1].Text, strQuote(quoteObj))
 	} else {
 		assert.Equal(t, r.Messages[1].Text, strQuoteAdded)
-		assert.Equal(t, r.Messages[0].Text, strQuote(qouteObj))
+		assert.Equal(t, r.Messages[0].Text, strQuote(quoteObj))
 	}
 }
 
@@ -186,11 +186,11 @@ func TestReactAddOutput(t *testing.T) {
 		panic("output should be created the first time")
 	}
 
-	addOuputSpace := COMMAND_ADD_OUTPUT + " "
+	addOutputSpace := COMMAND_ADD_OUTPUT + " "
 	testCases := []reactAddOutputTestCase{
-		{Name: "normal", Text: addOuputSpace + outputChatTitle, Reply: strOutputIsSet(outputChatTitle)},
-		{Name: "alreadyActive", Text: addOuputSpace + outputChatTitle, Reply: strOutputIsAlreadyActive(outputChatTitle)},
-		{Name: "notExist", Text: addOuputSpace + "I do not exist", Reply: strOutputNotFound("I do not exist")},
+		{Name: "normal", Text: addOutputSpace + outputChatTitle, Reply: strOutputIsSet(outputChatTitle)},
+		{Name: "alreadyActive", Text: addOutputSpace + outputChatTitle, Reply: strOutputIsAlreadyActive(outputChatTitle)},
+		{Name: "notExist", Text: addOutputSpace + "I do not exist", Reply: strOutputNotFound("I do not exist")},
 	}
 
 	h := Handlers{db: appDB}

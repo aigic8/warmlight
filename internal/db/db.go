@@ -16,7 +16,7 @@ var ErrNotFound = pgx.ErrNoRows
 type User = base.User
 type Output = base.Output
 type Source = base.Source
-type QouteSearchResult = base.SearchQuotesRow
+type QuoteSearchResult = base.SearchQuotesRow
 type CreateQuoteResult = base.CreateQuoteRow
 
 type DB struct {
@@ -60,7 +60,7 @@ func (db *DB) GetOrCreateUser(ID, ChatID int64, firstName string) (*User, bool, 
 	user, err := db.q.GetUser(ctx, ID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			user, err := db.q.CreateUser(ctx, base.CreateUserParams{ID: ID, ChatID: ChatID, Firstname: firstName})
+			user, err := db.q.CreateUser(ctx, base.CreateUserParams{ID: ID, ChatID: ChatID, FirstName: firstName})
 			if err != nil {
 				return nil, false, err
 			}
@@ -236,7 +236,7 @@ func (db *DB) GetOrCreateOutput(userID int64, chatID int64, chatTitle string) (*
 	return &output, false, nil
 }
 
-func (db *DB) SearchQuotes(userID int64, query string, limit int32) ([]QouteSearchResult, error) {
+func (db *DB) SearchQuotes(userID int64, query string, limit int32) ([]QuoteSearchResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
 
