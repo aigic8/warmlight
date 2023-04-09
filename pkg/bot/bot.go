@@ -398,7 +398,7 @@ func (h Handlers) reactInlineQuery(update *models.Update) ([]models.InlineQueryR
 	}
 
 	// TODO add tags
-	results := make([]models.InlineQueryResult, len(quotes))
+	results := make([]models.InlineQueryResult, 0, len(quotes))
 	for _, q := range quotes {
 		title := "No Source"
 		description := q.Text
