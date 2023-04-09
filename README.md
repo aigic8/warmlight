@@ -75,7 +75,7 @@ This part of documentation is still not written.
 Migrations are handled using [migrate](https://github.com/golang-migrate/migrate/). For simplicity, I've created a bash script. After creating a database, you can run migrations using this command:
 ```bash
 chmod +x ./migrate.sh # make migrate.sh executable
-DATABASE_URL=postgresql://postgres:password@localhost:5432/warmlight?sslmode=disable ./migrate.sh
+DB_URL=postgresql://postgres:password@localhost:5432/warmlight?sslmode=disable ./migrate.sh
 ```
 
 
