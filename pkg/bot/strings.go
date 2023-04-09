@@ -61,7 +61,7 @@ func strQuote(q *utils.Quote) string {
 	message := bot.EscapeMarkdown(q.Text)
 
 	if q.MainSource != "" {
-		message += "\n" + bot.EscapeMarkdown(q.MainSource)
+		message += "\n" + "*" + bot.EscapeMarkdown(q.MainSource) + "*"
 	}
 
 	if q.Tags != nil && len(q.Tags) != 0 {
