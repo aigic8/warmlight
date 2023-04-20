@@ -9,8 +9,9 @@ import (
 
 // Commands
 const COMMAND_START = "/start"
-const COMMAND_SET_ACTIVE_SOURCE = "/setActiveSource"
-const COMMAND_ADD_OUTPUT = "/addOutput"
+const COMMAND_SET_ACTIVE_SOURCE = "/setactivesource"
+const COMMAND_ADD_OUTPUT = "/addoutput"
+const COMMAND_DEACTIVATE_SOURCE = "/deactivatesource"
 
 const strInternalServerErr = "Internal server error happened!\nPlease retry"
 const strQuoteAdded = "Quote added"
@@ -34,6 +35,11 @@ const strMalformedSetActiveSource = "TODO write different examples on how to set
 const strSourceTimeoutShouldBeGreaterThanZero = "active source timeout should be greater than zero!"
 const strActiveSourceExpired = "active source expired"
 const strQuoteAddedButFailedToPublish = "quote is added but failed to publish in channels"
+const strNoActiveSource = "You currently have no active sources!"
+
+func strActiveSourceDeactivated(sourceName string) string {
+	return "source '" + sourceName + "' deactivated"
+}
 
 func strActiveSourceIsSet(sourceName string, timeoutMinutes int) string {
 	return fmt.Sprintf("The source '%s' is set as active source for %d minutes", sourceName, timeoutMinutes)

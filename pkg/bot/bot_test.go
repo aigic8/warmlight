@@ -115,6 +115,47 @@ func TestReactDefaultWithOutput(t *testing.T) {
 	}
 }
 
+func TestReactDeactivateSource(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+	var userID int64 = 1234
+	var chatID int64 = 1
+	firstName := "aigic8"
+	sourceName := "The social animal"
+	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := appDB.CreateSource(userID, sourceName); err != nil {
+		panic(err)
+	}
+
+	user, happened, err := appDB.SetActiveSource(userID, sourceName, time.Now().Add(100*time.Minute))
+	if !happened {
+		panic("happened should be true")
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	h := Handlers{db: appDB, defaultActiveSourceTimeoutMins: TEST_DEFAULT_ACTIVE_SOURCE_TIMEOUT_MINS}
+
+	r1, err := h.reactDeactivateSource(user, makeTestMessageUpdate(userID, firstName, COMMAND_DEACTIVATE_SOURCE))
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(r1.Messages))
+	assert.Equal(t, strActiveSourceDeactivated(sourceName), r1.Messages[0].Text)
+
+	user, err = appDB.GetUser(userID)
+	if err != nil {
+		panic(err)
+	}
+	r2, err := h.reactDeactivateSource(user, makeTestMessageUpdate(userID, firstName, COMMAND_DEACTIVATE_SOURCE))
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(r2.Messages))
+	assert.Equal(t, strNoActiveSource, r2.Messages[0].Text)
+}
+
 type reactSetActiveSourceTestCase struct {
 	Name  string
 	Text  string

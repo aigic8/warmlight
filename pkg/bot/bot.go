@@ -144,6 +144,8 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 		r, err = h.reactSetActiveSource(user, update)
 	case strings.HasPrefix(update.Message.Text, COMMAND_ADD_OUTPUT):
 		r, err = h.reactAddOutput(user, update)
+	case strings.HasPrefix(update.Message.Text, COMMAND_DEACTIVATE_SOURCE):
+		r, err = h.reactDeactivateSource(user, update)
 	default:
 		r, err = h.reactDefault(user, update)
 	}
@@ -171,7 +173,6 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 
 // TODO split reactions to multiple files
 func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction, error) {
-	// FIXME test reactDefault with outputs
 	q, err := u.ParseQuote(update.Message.Text)
 	if err != nil {
 		return u.Reaction{}, err
@@ -374,6 +375,27 @@ func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
 	}
 
 	return u.Reaction{}, nil
+}
+
+func (h Handlers) reactDeactivateSource(user *db.User, update *models.Update) (u.Reaction, error) {
+	activeSource := user.ActiveSource.String
+	if !user.ActiveSource.Valid {
+		return u.Reaction{
+			Messages: []bot.SendMessageParams{
+				u.TextReplyToMessage(update.Message, strNoActiveSource),
+			},
+		}, nil
+	}
+	_, err := h.db.DeactivateSource(user.ID)
+	if err != nil {
+		return u.Reaction{}, err
+	}
+
+	return u.Reaction{
+		Messages: []bot.SendMessageParams{
+			u.TextReplyToMessage(update.Message, strActiveSourceDeactivated(activeSource)),
+		},
+	}, nil
 }
 
 func (h Handlers) reactInlineQuery(update *models.Update) ([]models.InlineQueryResult, error) {
