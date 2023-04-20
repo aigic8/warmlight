@@ -149,9 +149,8 @@ func TestDBSetActiveSourceNormal(t *testing.T) {
 		panic(err)
 	}
 
-	_, effected, err := appDB.SetActiveSource(userID, sourceName, activeSourceExpire)
+	_, err = appDB.SetActiveSource(userID, sourceName, activeSourceExpire)
 	assert.Nil(t, err)
-	assert.True(t, effected)
 }
 
 func TestDBSetActiveSourceNotExist(t *testing.T) {
@@ -168,9 +167,8 @@ func TestDBSetActiveSourceNotExist(t *testing.T) {
 		panic(err)
 	}
 
-	_, effected, err := appDB.SetActiveSource(userID, sourceName, activeSourceExpire)
+	_, err = appDB.SetActiveSource(userID, sourceName, activeSourceExpire)
 	assert.Nil(t, err)
-	assert.True(t, effected)
 }
 
 func TestDBDeactivateExpiredSources(t *testing.T) {
@@ -187,13 +185,9 @@ func TestDBDeactivateExpiredSources(t *testing.T) {
 		panic(err)
 	}
 
-	_, effected, err := appDB.SetActiveSource(userID, sourceName, activeSourceExpire)
+	_, err = appDB.SetActiveSource(userID, sourceName, activeSourceExpire)
 	if err != nil {
 		panic(err)
-	}
-
-	if !effected {
-		panic("effected should be true")
 	}
 
 	users, err := appDB.DeactivateExpiredSources()
@@ -226,13 +220,9 @@ func TestDBDeactivateSource(t *testing.T) {
 		panic(err)
 	}
 
-	_, effected, err := appDB.SetActiveSource(userID, sourceName, activeSourceExpire)
+	_, err = appDB.SetActiveSource(userID, sourceName, activeSourceExpire)
 	if err != nil {
 		panic(err)
-	}
-
-	if !effected {
-		panic("effected should be true")
 	}
 
 	_, err = appDB.DeactivateSource(userID)

@@ -131,10 +131,7 @@ func TestReactDeactivateSource(t *testing.T) {
 		panic(err)
 	}
 
-	user, happened, err := appDB.SetActiveSource(userID, sourceName, time.Now().Add(100*time.Minute))
-	if !happened {
-		panic("happened should be true")
-	}
+	user, err := appDB.SetActiveSource(userID, sourceName, time.Now().Add(100*time.Minute))
 	if err != nil {
 		panic(err)
 	}

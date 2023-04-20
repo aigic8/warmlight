@@ -298,12 +298,9 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 		return u.Reaction{}, err
 	}
 
-	_, effected, err := h.db.SetActiveSource(user.ID, args[0], activeSourceExpire)
+	_, err = h.db.SetActiveSource(user.ID, args[0], activeSourceExpire)
 	if err != nil {
 		return u.Reaction{}, err
-	}
-	if !effected {
-		return u.Reaction{}, errors.New("setActiveSource does not have any errors does not effect any rows")
 	}
 
 	return u.Reaction{

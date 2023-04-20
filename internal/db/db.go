@@ -156,7 +156,7 @@ func (db *DB) GetSource(userID int64, name string) (*Source, error) {
 	return &source, nil
 }
 
-func (db *DB) SetActiveSource(userID int64, activeSourceStr string, activeSourceExpireTime time.Time) (*User, bool, error) {
+func (db *DB) SetActiveSource(userID int64, activeSourceStr string, activeSourceExpireTime time.Time) (*User, error) {
 	// FIXME refactor and remove the second bool
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
@@ -166,13 +166,10 @@ func (db *DB) SetActiveSource(userID int64, activeSourceStr string, activeSource
 		ActiveSourceExpire: sql.NullTime{Valid: true, Time: activeSourceExpireTime},
 	})
 
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, false, nil
-	}
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	return &user, true, nil
+	return &user, nil
 }
 
 func (db *DB) DeactivateExpiredSources() ([]User, error) {
