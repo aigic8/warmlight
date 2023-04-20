@@ -54,15 +54,20 @@ INSERT INTO outputs (user_id, chat_id, title) VALUES ($1, $2, $3) RETURNING *;
 SELECT * FROM outputs WHERE user_id = $1;
 
 -- name: GetOutput :one
-SELECT * FROM outputs WHERE user_id = $1 AND title = $2;
+SELECT * FROM outputs WHERE user_id = $1 AND chat_id = $2;
 
--- name: SetOutputActive :one
+-- name: ActivateOutput :one
 UPDATE outputs SET
   is_active = TRUE
-WHERE user_id = $1 AND title = $2 RETURNING *;
+WHERE chat_id = $1 AND user_id = $2 RETURNING *;
+
+-- name: DeactivateOutput :one
+UPDATE outputs SET
+  is_active = FALSE
+WHERE chat_id = $1 AND user_id = $2 RETURNING *;
 
 -- name: DeleteOutput :exec
-DELETE FROM outputs WHERE user_id = $1 AND title = $2;
+DELETE FROM outputs WHERE user_id = $1 AND chat_id = $2;
 
 ----------- TAGS -------------
 

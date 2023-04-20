@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aigic8/warmlight/internal/db/base"
+	"github.com/aigic8/warmlight/pkg/bot/models"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -194,10 +195,10 @@ func (db *DB) GetOutputs(userID int64) ([]Output, error) {
 	return db.q.GetOutputs(ctx, userID)
 }
 
-func (db *DB) GetOutput(userID int64, chatTitle string) (*Output, error) {
+func (db *DB) GetOutput(userID int64, outputChatID int64) (*Output, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
-	output, err := db.q.GetOutput(ctx, base.GetOutputParams{UserID: userID, Title: chatTitle})
+	output, err := db.q.GetOutput(ctx, base.GetOutputParams{UserID: userID, ChatID: outputChatID})
 	if err != nil {
 		return nil, err
 	}
@@ -205,10 +206,10 @@ func (db *DB) GetOutput(userID int64, chatTitle string) (*Output, error) {
 	return &output, nil
 }
 
-func (db *DB) SetOutputActive(userID int64, chatTitle string) (*Output, error) {
+func (db *DB) ActivateOutput(userID int64, outputChatID int64) (*Output, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
-	output, err := db.q.SetOutputActive(ctx, base.SetOutputActiveParams{UserID: userID, Title: chatTitle})
+	output, err := db.q.ActivateOutput(ctx, base.ActivateOutputParams{UserID: userID, ChatID: outputChatID})
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +219,7 @@ func (db *DB) SetOutputActive(userID int64, chatTitle string) (*Output, error) {
 func (db *DB) GetOrCreateOutput(userID int64, chatID int64, chatTitle string) (*Output, bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
-	output, err := db.q.GetOutput(ctx, base.GetOutputParams{UserID: userID, Title: chatTitle})
+	output, err := db.q.GetOutput(ctx, base.GetOutputParams{UserID: userID, ChatID: chatID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			output, err := db.q.CreateOutput(ctx, base.CreateOutputParams{UserID: userID, ChatID: chatID, Title: chatTitle})
@@ -241,11 +242,58 @@ func (db *DB) SearchQuotes(userID int64, query string, limit int32) ([]QuoteSear
 	return db.q.SearchQuotes(ctx, base.SearchQuotesParams{UserID: userID, ToTsquery: query, Limit: limit})
 }
 
-func (db *DB) DeleteOutput(userID int64, chatTitle string) error {
+func (db *DB) DeleteOutput(userID int64, outputChatID int64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
-	err := db.q.DeleteOutput(ctx, base.DeleteOutputParams{UserID: userID, Title: chatTitle})
+	err := db.q.DeleteOutput(ctx, base.DeleteOutputParams{UserID: userID, ChatID: outputChatID})
 	return err
+}
+
+func (db *DB) DoCallbackData(user *User, callbackData *models.CallbackData) error {
+	c, err := db.pool.Acquire(context.Background())
+	if err != nil {
+		return err
+	}
+	defer c.Release()
+
+	tx, err := c.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(context.Background())
+		} else {
+			tx.Commit(context.Background())
+		}
+	}()
+
+	q := db.q.WithTx(tx)
+
+	if callbackData.ActivateOutputs != nil {
+		for _, outputChatID := range callbackData.ActivateOutputs {
+			ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+			_, err := q.ActivateOutput(ctx, base.ActivateOutputParams{UserID: user.ID, ChatID: outputChatID})
+			defer cancel()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if callbackData.DeactivateOutputs != nil {
+		for _, outputChatID := range callbackData.DeactivateOutputs {
+			ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+			_, err := q.DeactivateOutput(ctx, base.DeactivateOutputParams{UserID: user.ID, ChatID: outputChatID})
+			defer cancel()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (db *DB) DEBUGCleanDB() error {

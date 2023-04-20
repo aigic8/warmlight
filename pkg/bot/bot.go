@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/aigic8/warmlight/internal/db"
+	m "github.com/aigic8/warmlight/pkg/bot/models"
 	u "github.com/aigic8/warmlight/pkg/bot/utils"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -92,6 +94,18 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 		return
 	}
 
+	var r u.Reaction
+	isCallbackQuery := false
+	if update.CallbackQuery != nil {
+		var err error
+		isCallbackQuery = true
+		r, err = h.reactCallbackQuery(update)
+		if err != nil {
+			h.l.Error().Err(err).Msg("reacting to callback query")
+			return
+		}
+	}
+
 	if update.InlineQuery != nil {
 		results, err := h.reactInlineQuery(update)
 		if err != nil {
@@ -134,29 +148,28 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 		return
 	}
 
-	var r u.Reaction
-	switch {
-	case userCreated:
-		r, err = h.reactNewUser(user, update)
-	case update.Message.Text == COMMAND_START:
-		r, err = h.reactAlreadyJoinedStart(user, update)
-	case strings.HasPrefix(update.Message.Text, COMMAND_SET_ACTIVE_SOURCE):
-		r, err = h.reactSetActiveSource(user, update)
-	case strings.HasPrefix(update.Message.Text, COMMAND_ADD_OUTPUT):
-		r, err = h.reactAddOutput(user, update)
-	case strings.HasPrefix(update.Message.Text, COMMAND_DEACTIVATE_SOURCE):
-		r, err = h.reactDeactivateSource(user, update)
-	default:
-		r, err = h.reactDefault(user, update)
-	}
+	if !isCallbackQuery {
+		switch {
+		case userCreated:
+			r, err = h.reactNewUser(user, update)
+		case update.Message.Text == COMMAND_START:
+			r, err = h.reactAlreadyJoinedStart(user, update)
+		case strings.HasPrefix(update.Message.Text, COMMAND_SET_ACTIVE_SOURCE):
+			r, err = h.reactSetActiveSource(user, update)
+		case strings.HasPrefix(update.Message.Text, COMMAND_DEACTIVATE_SOURCE):
+			r, err = h.reactDeactivateSource(user, update)
+		default:
+			r, err = h.reactDefault(user, update)
+		}
 
-	if err != nil {
-		_, err = b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: update.Message.Chat.ID,
-			Text:   strInternalServerErr,
-		})
-		h.l.Error().Err(err).Msg("sending internal server error message")
-		return
+		if err != nil {
+			_, err = b.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID: update.Message.Chat.ID,
+				Text:   strInternalServerErr,
+			})
+			h.l.Error().Err(err).Msg("sending internal server error message")
+			return
+		}
 	}
 
 	if err = r.Do(ctx, b); err != nil {
@@ -310,44 +323,23 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 	}, nil
 }
 
-func (h Handlers) reactAddOutput(user *db.User, update *models.Update) (u.Reaction, error) {
-	// TODO philosophy question: what to use to identify the output?
-	// some outputs might not have username and there is the possibility of two outputs having the same title
-	// How to fix this?
-	// 1. ask user to forward a message from the channel, that way we can have the chat ID
-	// 2. List all the channels from user with buttons and ask user to click the channel button
-	// FIXME handle output title change!
-	chatTitle := strings.TrimSpace(strings.TrimPrefix(update.Message.Text, COMMAND_ADD_OUTPUT))
-	output, err := h.db.GetOutput(user.ID, chatTitle)
-	if err != nil {
-		if errors.Is(err, db.ErrNotFound) {
-			return u.Reaction{
-				Messages: []bot.SendMessageParams{
-					u.TextReplyToMessage(update.Message, strOutputNotFound(chatTitle)),
-				},
-			}, nil
-		}
-		return u.Reaction{}, err
-	}
-
-	if output.IsActive {
-		return u.Reaction{
-			Messages: []bot.SendMessageParams{
-				u.TextReplyToMessage(update.Message, strOutputIsAlreadyActive(chatTitle)),
-			},
-		}, nil
-	}
-
-	_, err = h.db.SetOutputActive(user.ID, chatTitle)
+func (h Handlers) reactGetOutputs(user *db.User, update *models.Update) (u.Reaction, error) {
+	// FIXME paginate get outputs
+	outputs, err := h.db.GetOutputs(user.ID)
 	if err != nil {
 		return u.Reaction{}, err
 	}
 
-	return u.Reaction{
-		Messages: []bot.SendMessageParams{
-			u.TextReplyToMessage(update.Message, strOutputIsSet(chatTitle)),
-		},
-	}, nil
+	msg := u.TextReplyToMessage(update.Message, strListOfYourOutputs(outputs))
+	msg.ParseMode = models.ParseModeMarkdown
+
+	replyMarkup, err := u.OutputsReplyMarkup(outputs)
+	if err != nil {
+		return u.Reaction{}, err
+	}
+
+	msg.ReplyMarkup = replyMarkup
+	return u.Reaction{Messages: []bot.SendMessageParams{msg}}, nil
 }
 
 func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
@@ -362,11 +354,11 @@ func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
 	adminChatMember := update.MyChatMember.NewChatMember.Administrator
 	ownerChatMember := update.MyChatMember.NewChatMember.Owner
 	if (adminChatMember != nil && adminChatMember.CanPostMessages) || ownerChatMember != nil {
-		if _, _, err := h.db.GetOrCreateOutput(int64(from.ID), int64(chat.ID), chat.Title); err != nil {
+		if _, _, err := h.db.GetOrCreateOutput(from.ID, chat.ID, chat.Title); err != nil {
 			return u.Reaction{}, err
 		}
 	} else {
-		if err := h.db.DeleteOutput(int64(from.ID), chat.Title); err != nil {
+		if err := h.db.DeleteOutput(from.ID, chat.ID); err != nil {
 			return u.Reaction{}, err
 		}
 	}
@@ -393,6 +385,51 @@ func (h Handlers) reactDeactivateSource(user *db.User, update *models.Update) (u
 			u.TextReplyToMessage(update.Message, strActiveSourceDeactivated(activeSource)),
 		},
 	}, nil
+}
+
+func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) {
+	user, err := h.db.GetUser(update.CallbackQuery.Sender.ID)
+	if err != nil {
+		if !errors.Is(err, db.ErrNotFound) {
+			return u.Reaction{}, err
+		}
+		return u.Reaction{}, nil
+	}
+
+	var callbackData m.CallbackData
+	if err := json.Unmarshal([]byte(update.CallbackQuery.Data), &callbackData); err != nil {
+		return u.Reaction{}, err
+	}
+
+	if err = h.db.DoCallbackData(user, &callbackData); err != nil {
+		return u.Reaction{}, err
+	}
+
+	if callbackData.ReplaceMessageWith == m.OUTPUTS_LIST_MSG {
+		outputs, err := h.db.GetOutputs(user.ID)
+		if err != nil {
+			return u.Reaction{}, err
+		}
+
+		replyMarkup, err := u.OutputsReplyMarkup(outputs)
+		if err != nil {
+			return u.Reaction{}, err
+		}
+
+		return u.Reaction{
+			EditMessages: []bot.EditMessageTextParams{
+				{
+					ChatID:      update.CallbackQuery.Message.Chat.ID,
+					MessageID:   update.CallbackQuery.Message.ID,
+					Text:        strListOfYourOutputs(outputs),
+					ParseMode:   models.ParseModeMarkdown,
+					ReplyMarkup: replyMarkup,
+				},
+			},
+		}, nil
+	}
+
+	return u.Reaction{}, nil
 }
 
 func (h Handlers) reactInlineQuery(update *models.Update) ([]models.InlineQueryResult, error) {

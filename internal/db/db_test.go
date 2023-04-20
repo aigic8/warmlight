@@ -338,7 +338,7 @@ func TestDBGetOutputNormal(t *testing.T) {
 		panic("output should be created in the first time")
 	}
 
-	output, err := appDB.GetOutput(userID, outputChatTitle)
+	output, err := appDB.GetOutput(userID, outputChatID)
 	assert.Nil(t, err)
 	assert.Equal(t, outputChatID, output.ChatID)
 	assert.Equal(t, outputChatTitle, output.Title)
@@ -368,10 +368,10 @@ func TestDBSetOutputActiveNormal(t *testing.T) {
 		panic("output should be created in the first time")
 	}
 
-	_, err = appDB.SetOutputActive(userID, outputChatTitle)
+	_, err = appDB.ActivateOutput(userID, outputChatID)
 	assert.Nil(t, err)
 
-	output, err := appDB.GetOutput(userID, outputChatTitle)
+	output, err := appDB.GetOutput(userID, outputChatID)
 	assert.Nil(t, err)
 	assert.Equal(t, outputChatID, output.ChatID)
 	assert.Equal(t, outputChatTitle, output.Title)
@@ -402,10 +402,10 @@ func TestDBDeleteOutputNormal(t *testing.T) {
 		panic("output should be created in the first time")
 	}
 
-	err = appDB.DeleteOutput(userID, outputChatTitle)
+	err = appDB.DeleteOutput(userID, outputChatID)
 	assert.Nil(t, err)
 
-	_, err = appDB.GetOutput(userID, outputChatTitle)
+	_, err = appDB.GetOutput(userID, outputChatID)
 	assert.NotNil(t, err)
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -415,7 +415,6 @@ func TestDBDeleteOutputNotExist(t *testing.T) {
 	defer appDB.Close()
 	var userID int64 = 1234
 	var userChatID int64 = 1
-	outputChatTitle := "My quotes"
 
 	userFirstName := "aigic8"
 
@@ -423,7 +422,7 @@ func TestDBDeleteOutputNotExist(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	err = appDB.DeleteOutput(userID, outputChatTitle)
+	err = appDB.DeleteOutput(userID, 10)
 	assert.Nil(t, err)
 }
 

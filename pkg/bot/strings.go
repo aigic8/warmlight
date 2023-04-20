@@ -3,6 +3,7 @@ package bot
 import (
 	"fmt"
 
+	"github.com/aigic8/warmlight/internal/db"
 	"github.com/aigic8/warmlight/pkg/bot/utils"
 	"github.com/go-telegram/bot"
 )
@@ -10,7 +11,7 @@ import (
 // Commands
 const COMMAND_START = "/start"
 const COMMAND_SET_ACTIVE_SOURCE = "/setactivesource"
-const COMMAND_ADD_OUTPUT = "/addoutput"
+const COMMAND_GET_OUTPUTS = "/getoutputs"
 const COMMAND_DEACTIVATE_SOURCE = "/deactivatesource"
 
 const strInternalServerErr = "Internal server error happened!\nPlease retry"
@@ -49,17 +50,21 @@ func strSourceDoesExist(sourceName string) string {
 	return fmt.Sprintf("Source '%s' does not exist", sourceName)
 }
 
-// Outputs
-func strOutputNotFound(chatTitle string) string {
-	return fmt.Sprintf("No channel with title '%s' was found. Make sure the bot is admin with send message permissions.\nIf it is, make it a normal user and then again an admin.", chatTitle)
-}
+// IMPORTANT needs support for Markdown parseMode
+func strListOfYourOutputs(outputs []db.Output) string {
+	if len(outputs) == 0 {
+		return "You have no outputs.\n To add an output you need to set the bot as admin of a channel.\n If you have already done that, please redo it and try again."
+	}
 
-func strOutputIsAlreadyActive(chatTitle string) string {
-	return fmt.Sprintf("Channel '%s' is already active.", chatTitle)
-}
-
-func strOutputIsSet(chatTitle string) string {
-	return fmt.Sprintf("Channel '%s' is now active!", chatTitle)
+	text := ""
+	for _, output := range outputs {
+		state := "deactive"
+		if output.IsActive {
+			state = "active"
+		}
+		text += "*" + bot.EscapeMarkdown(output.Title) + "* - " + state
+	}
+	return text
 }
 
 // IMPORTANT needs support Markdown parseMode

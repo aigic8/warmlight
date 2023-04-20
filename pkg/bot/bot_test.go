@@ -195,54 +195,150 @@ func TestReactSetActiveSource(t *testing.T) {
 	}
 }
 
-type reactAddOutputTestCase struct {
-	Name  string
-	Text  string
-	Reply string
-}
+// type reactAddOutputTestCase struct {
+// 	Name  string
+// 	Text  string
+// 	Reply string
+// }
 
-func TestReactAddOutput(t *testing.T) {
+// func TestReactAddOutput(t *testing.T) {
+// 	appDB := mustInitDB(TEST_DB_URL)
+// 	defer appDB.Close()
+// 	var userID int64 = 1234
+// 	var userChatID int64 = 1
+// 	firstName := "aigic8"
+// 	var outputChatID int64 = 10
+// 	outputChatTitle := "My quotes"
+
+// 	user, _, err := appDB.GetOrCreateUser(userID, userChatID, firstName)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	_, created, err := appDB.GetOrCreateOutput(userID, outputChatID, outputChatTitle)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	if created == false {
+// 		panic("output should be created the first time")
+// 	}
+
+// 	addOutputSpace := COMMAND_ADD_OUTPUT + " "
+// 	testCases := []reactAddOutputTestCase{
+// 		{Name: "normal", Text: addOutputSpace + outputChatTitle, Reply: strOutputIsSet(outputChatTitle)},
+// 		{Name: "alreadyActive", Text: addOutputSpace + outputChatTitle, Reply: strOutputIsAlreadyActive(outputChatTitle)},
+// 		{Name: "notExist", Text: addOutputSpace + "I do not exist", Reply: strOutputNotFound("I do not exist")},
+// 	}
+
+// 	h := Handlers{db: appDB}
+// 	for _, tc := range testCases {
+// 		t.Run(tc.Name, func(t *testing.T) {
+// 			update := makeTestMessageUpdate(int64(userID), firstName, tc.Text)
+// 			r, err := h.reactAddOutput(user, update)
+
+// 			assert.Nil(t, err)
+// 			assert.Equal(t, 1, len(r.Messages))
+// 			assert.Equal(t, tc.Reply, r.Messages[0].Text)
+// 		})
+// 	}
+
+// }
+
+func TestReactGetOutputs(t *testing.T) {
 	appDB := mustInitDB(TEST_DB_URL)
 	defer appDB.Close()
 	var userID int64 = 1234
 	var userChatID int64 = 1
 	firstName := "aigic8"
-	var outputChatID int64 = 10
-	outputChatTitle := "My quotes"
+
+	var output1ChatID int64 = 10
+	output1Title := "My quotes"
+	var output2ChatID int64 = 11
+	output2Title := "Best quotes"
 
 	user, _, err := appDB.GetOrCreateUser(userID, userChatID, firstName)
 	if err != nil {
 		panic(err)
 	}
 
-	_, created, err := appDB.GetOrCreateOutput(userID, outputChatID, outputChatTitle)
+	h := Handlers{db: appDB}
+	r1, err := h.reactGetOutputs(user, makeTestMessageUpdate(userID, firstName, COMMAND_GET_OUTPUTS))
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(r1.Messages))
+	assert.Equal(t, strListOfYourOutputs([]db.Output{}), r1.Messages[0].Text)
+
+	_, created, err := appDB.GetOrCreateOutput(userID, output1ChatID, output1Title)
 	if err != nil {
 		panic(err)
 	}
-
 	if created == false {
 		panic("output should be created the first time")
 	}
 
-	addOutputSpace := COMMAND_ADD_OUTPUT + " "
-	testCases := []reactAddOutputTestCase{
-		{Name: "normal", Text: addOutputSpace + outputChatTitle, Reply: strOutputIsSet(outputChatTitle)},
-		{Name: "alreadyActive", Text: addOutputSpace + outputChatTitle, Reply: strOutputIsAlreadyActive(outputChatTitle)},
-		{Name: "notExist", Text: addOutputSpace + "I do not exist", Reply: strOutputNotFound("I do not exist")},
+	output1, err := appDB.ActivateOutput(userID, output1ChatID)
+	if err != nil {
+		panic(err)
 	}
 
-	h := Handlers{db: appDB}
-	for _, tc := range testCases {
-		t.Run(tc.Name, func(t *testing.T) {
-			update := makeTestMessageUpdate(int64(userID), firstName, tc.Text)
-			r, err := h.reactAddOutput(user, update)
-
-			assert.Nil(t, err)
-			assert.Equal(t, 1, len(r.Messages))
-			assert.Equal(t, tc.Reply, r.Messages[0].Text)
-		})
+	output2, created, err := appDB.GetOrCreateOutput(userID, output2ChatID, output2Title)
+	if err != nil {
+		panic(err)
+	}
+	if created == false {
+		panic("output should be created the first time")
 	}
 
+	user, err = appDB.GetUser(userID)
+	if err != nil {
+		panic(err)
+	}
+
+	r2, err := h.reactGetOutputs(user, makeTestMessageUpdate(userID, firstName, COMMAND_GET_OUTPUTS))
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(r2.Messages))
+	msgText := r2.Messages[0].Text
+
+	isTextValid := msgText == strListOfYourOutputs([]db.Output{*output1, *output2}) ||
+		msgText == strListOfYourOutputs([]db.Output{*output2, *output1})
+	assert.True(t, isTextValid, "text is not valid:\n%s", msgText)
+
+	output1CallbackData, err := utils.MakeToggleOutputStateCallback(output1)
+	if err != nil {
+		panic(err)
+	}
+
+	output2CallbackData, err := utils.MakeToggleOutputStateCallback(output2)
+	if err != nil {
+		panic(err)
+	}
+
+	btn1Text := output1Title + " - " + "active"
+	btn2Text := output2Title + " - " + "deactive"
+	expectedButtons := map[string]models.InlineKeyboardButton{
+		btn1Text: {Text: btn1Text, CallbackData: output1CallbackData},
+		btn2Text: {Text: btn2Text, CallbackData: output2CallbackData},
+	}
+
+	foundButtons := map[string]bool{
+		btn1Text: false,
+		btn2Text: false,
+	}
+
+	keyboard := r2.Messages[0].ReplyMarkup.(models.InlineKeyboardMarkup).InlineKeyboard
+	assert.Equal(t, len(expectedButtons), len(keyboard))
+
+	for _, row := range keyboard {
+		btnText := row[0].Text
+		btn, btnFound := expectedButtons[btnText]
+		assert.True(t, btnFound, "button with title '%s' was not expected", btnText)
+		assert.Equal(t, btn.CallbackData, row[0].CallbackData)
+		foundButtons[btnText] = true
+	}
+
+	for text, found := range foundButtons {
+		assert.True(t, found, "button with text '%s' was not found", text)
+	}
 }
 
 func makeTestMessageUpdate(userID int64, firstName string, text string) *models.Update {
