@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/aigic8/warmlight/internal/db/base"
@@ -249,48 +250,30 @@ func (db *DB) DeleteOutput(userID int64, outputChatID int64) error {
 	return err
 }
 
-func (db *DB) DoCallbackData(user *User, callbackData *models.CallbackData) error {
-	c, err := db.pool.Acquire(context.Background())
-	if err != nil {
-		return err
-	}
-	defer c.Release()
-
-	tx, err := c.BeginTx(context.Background(), pgx.TxOptions{})
-	if err != nil {
-		return err
-	}
-
-	defer func() {
+func (db *DB) DoCallback(user *User, callbackData *models.CallbackData) error {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	switch callbackData.Action {
+	case models.CALLBACK_COMMAND_ACTIVATE_OUTPUT:
+		outputChatID, err := strconv.ParseInt(callbackData.Data, 10, 0)
 		if err != nil {
-			tx.Rollback(context.Background())
-		} else {
-			tx.Commit(context.Background())
+			return err
 		}
-	}()
-
-	q := db.q.WithTx(tx)
-
-	if callbackData.ActivateOutputs != nil {
-		for _, outputChatID := range callbackData.ActivateOutputs {
-			ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
-			_, err := q.ActivateOutput(ctx, base.ActivateOutputParams{UserID: user.ID, ChatID: outputChatID})
-			defer cancel()
-			if err != nil {
-				return err
-			}
+		_, err = db.q.ActivateOutput(ctx, base.ActivateOutputParams{ChatID: outputChatID, UserID: user.ID})
+		if err != nil {
+			return err
 		}
-	}
-
-	if callbackData.DeactivateOutputs != nil {
-		for _, outputChatID := range callbackData.DeactivateOutputs {
-			ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
-			_, err := q.DeactivateOutput(ctx, base.DeactivateOutputParams{UserID: user.ID, ChatID: outputChatID})
-			defer cancel()
-			if err != nil {
-				return err
-			}
+	case models.CALLBACK_COMMAND_DEACTIVATE_OUTPUT:
+		outputChatID, err := strconv.ParseInt(callbackData.Data, 10, 0)
+		if err != nil {
+			return err
 		}
+		_, err = db.q.DeactivateOutput(ctx, base.DeactivateOutputParams{ChatID: outputChatID, UserID: user.ID})
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.New("unknown callback data action")
 	}
 
 	return nil

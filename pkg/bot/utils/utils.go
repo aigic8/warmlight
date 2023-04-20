@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"encoding/json"
+	"strconv"
 
 	"github.com/aigic8/warmlight/internal/db"
 	m "github.com/aigic8/warmlight/pkg/bot/models"
@@ -17,20 +17,20 @@ func TextReplyToMessage(message *models.Message, text string) bot.SendMessagePar
 	}
 }
 
+// returns callback command in format replaceMsgWith-command-data
 func MakeToggleOutputStateCallback(output *db.Output) (string, error) {
-	var data m.CallbackData
+	chatIDStr := strconv.FormatInt(output.ChatID, 10)
+	callbackData := m.CallbackData{
+		ReplaceMessageWith: m.CALLBACK_OUTPUTS_LIST_MSG,
+		Action:             m.CALLBACK_COMMAND_ACTIVATE_OUTPUT,
+		Data:               chatIDStr,
+	}
+
 	if output.IsActive {
-		data = m.CallbackData{DeactivateOutputs: []int64{output.ChatID}, ReplaceMessageWith: m.OUTPUTS_LIST_MSG}
-	} else {
-		data = m.CallbackData{ActivateOutputs: []int64{output.ChatID}, ReplaceMessageWith: m.OUTPUTS_LIST_MSG}
+		callbackData.Action = m.CALLBACK_COMMAND_DEACTIVATE_OUTPUT
 	}
 
-	dataBytes, err := json.Marshal(&data)
-	if err != nil {
-		return "", err
-	}
-
-	return string(dataBytes), nil
+	return callbackData.Marshal(), nil
 }
 
 func OutputsReplyMarkup(outputs []db.Output) (models.InlineKeyboardMarkup, error) {

@@ -2,7 +2,6 @@ package bot
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -396,16 +395,16 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 		return u.Reaction{}, nil
 	}
 
-	var callbackData m.CallbackData
-	if err := json.Unmarshal([]byte(update.CallbackQuery.Data), &callbackData); err != nil {
+	callbackData, err := m.UnmarshalCallbackData(update.CallbackQuery.Data)
+	if err != nil {
 		return u.Reaction{}, err
 	}
 
-	if err = h.db.DoCallbackData(user, &callbackData); err != nil {
+	if err = h.db.DoCallback(user, &callbackData); err != nil {
 		return u.Reaction{}, err
 	}
 
-	if callbackData.ReplaceMessageWith == m.OUTPUTS_LIST_MSG {
+	if callbackData.ReplaceMessageWith == m.CALLBACK_OUTPUTS_LIST_MSG {
 		outputs, err := h.db.GetOutputs(user.ID)
 		if err != nil {
 			return u.Reaction{}, err
