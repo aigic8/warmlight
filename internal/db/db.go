@@ -159,7 +159,6 @@ func (db *DB) GetSource(userID int64, name string) (*Source, error) {
 }
 
 func (db *DB) SetActiveSource(userID int64, activeSourceStr string, activeSourceExpireTime time.Time) (*User, error) {
-	// FIXME refactor and remove the second bool
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
 	user, err := db.q.SetActiveSource(ctx, base.SetActiveSourceParams{
