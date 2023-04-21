@@ -1,11 +1,11 @@
 
-CREATE TYPE source_type AS ENUM ('unknown', 'book', 'website', 'person');
+CREATE TYPE source_kind AS ENUM ('unknown', 'book', 'website', 'person');
 
 CREATE TABLE IF NOT EXISTS sources (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   user_id BIGINT NOT NULL REFERENCES users (id),
-  kind source_type NOT NULL DEFAULT 'unknown',
+  kind source_kind NOT NULL DEFAULT 'unknown',
   data JSON,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
