@@ -8,6 +8,7 @@ CREATE TABLE users (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TYPE source_type AS ENUM ('unknown', 'book', 'website', 'person');
 CREATE TABLE sources (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
