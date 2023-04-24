@@ -30,6 +30,8 @@ type Config struct {
 	Port                           int
 }
 
+const SOURCES_PAGE_LIMIT = 5
+
 // TODO add support for filtering HASHTAGS and SOURCES for different outputs
 
 func RunBot(appDB *db.DB, token string, config *Config) error {
@@ -157,6 +159,8 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 			r, err = h.reactSetActiveSource(user, update)
 		case strings.HasPrefix(update.Message.Text, COMMAND_DEACTIVATE_SOURCE):
 			r, err = h.reactDeactivateSource(user, update)
+		case strings.HasPrefix(update.Message.Text, COMMAND_GET_SOURCES):
+			r, err = h.reactGetSources(user, update)
 		default:
 			r, err = h.reactDefault(user, update)
 		}
@@ -255,6 +259,50 @@ func (h Handlers) reactAlreadyJoinedStart(user *db.User, update *models.Update) 
 			u.TextReplyToMessage(update.Message, strYouAreAlreadyJoined(user.FirstName)),
 		},
 	}, nil
+}
+
+func (h Handlers) reactGetSources(user *db.User, update *models.Update) (u.Reaction, error) {
+	text := strings.TrimSpace(strings.TrimPrefix(update.Message.Text, COMMAND_GET_SOURCES))
+
+	filter, err := m.ParseSourceFilter(text)
+	if err != nil {
+		if errors.Is(err, m.ErrMultipleSourceKindFilters) {
+			return u.Reaction{
+				Messages: []bot.SendMessageParams{
+					u.TextReplyToMessage(update.Message, strOnlyOneSourceKindFilterIsAllowed),
+				},
+			}, nil
+		}
+		return u.Reaction{}, err
+	}
+
+	// we are fetching one more elements to check if there is any more pages or not
+	sources, err := h.db.QuerySources(db.QuerySourcesParams{
+		UserID:     user.ID,
+		NameQuery:  filter.Text,
+		SourceKind: filter.SourceKind,
+		Limit:      SOURCES_PAGE_LIMIT + 1,
+		BaseID:     0,
+		Before:     false,
+	})
+	if err != nil {
+		return u.Reaction{}, err
+	}
+
+	sourcesLen := len(sources)
+	isLastPage := sourcesLen < SOURCES_PAGE_LIMIT+1
+	var viewedSources []db.Source
+	if !isLastPage {
+		// excluding the last element in viewed sources
+		viewedSources = sources[:sourcesLen-1]
+	} else {
+		viewedSources = sources[:]
+	}
+
+	msg := u.TextReplyToMessage(update.Message, strListOfSources(viewedSources))
+	msg.ParseMode = models.ParseModeMarkdown
+	msg.ReplyMarkup = u.SourcesReplyMarkup(viewedSources, true, isLastPage)
+	return u.Reaction{Messages: []bot.SendMessageParams{msg}}, nil
 }
 
 func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.Reaction, error) {
@@ -404,7 +452,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 		return u.Reaction{}, err
 	}
 
-	if callbackData.ReplaceMessageWith == m.CALLBACK_OUTPUTS_LIST_MSG {
+	if callbackData.ReplaceMessageWith == m.CALLBACK_MSG_OUTPUTS_LIST {
 		outputs, err := h.db.GetOutputs(user.ID)
 		if err != nil {
 			return u.Reaction{}, err

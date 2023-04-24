@@ -3,12 +3,14 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"time"
 
 	"github.com/aigic8/warmlight/internal/db/base"
 	"github.com/aigic8/warmlight/pkg/bot/models"
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -18,6 +20,7 @@ var ErrNotFound = pgx.ErrNoRows
 type User = base.User
 type Output = base.Output
 type Source = base.Source
+type SourceKind = base.SourceKind
 type QuoteSearchResult = base.SearchQuotesRow
 type CreateQuoteResult = base.CreateQuoteRow
 
@@ -26,6 +29,28 @@ type DB struct {
 	q       *base.Queries
 	Timeout time.Duration
 }
+
+type (
+	SourceBookData struct {
+		Author       string `json:"author,omitempty"`
+		LinkToInfo   string `json:"linkToInfo,omitempty"`
+		LinkToAuthor string `json:"linkToAuthor,omitempty"`
+	}
+
+	SourceArticleData struct {
+		URL    string `json:"url,omitempty"`
+		Title  string `json:"title,omitempty"`
+		Author string `json:"author,omitempty"`
+	}
+
+	SourcePersonData struct {
+		Name       string    `json:"name,omitempty"`
+		LinkToInfo string    `json:"linkToInfo,omitempty"`
+		Title      string    `json:"title,omitempty"`
+		BornOn     time.Time `json:"bornOn,omitempty"`
+		DeathOn    time.Time `json:"deathOn,omitempty"`
+	}
+)
 
 func NewDB(URL string, timeout time.Duration) (*DB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -158,6 +183,131 @@ func (db *DB) GetSource(userID int64, name string) (*Source, error) {
 	return &source, nil
 }
 
+func (db *DB) SetSourceBook(userID int64, sourceID int64, sourceData *SourceBookData) (*Source, error) {
+	var err error
+	data := pgtype.JSON{Status: pgtype.Null}
+	if sourceData != nil {
+		data.Status = pgtype.Present
+		data.Bytes, err = json.Marshal(sourceData)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	source, err := db.q.SetSourceData(ctx, base.SetSourceDataParams{UserID: userID, ID: sourceID, Kind: base.SourceKindBook, Data: data})
+	if err != nil {
+		return nil, err
+	}
+
+	return &source, nil
+}
+
+func (db *DB) SetSourceArticle(userID int64, sourceID int64, sourceData *SourceArticleData) (*Source, error) {
+	var err error
+	data := pgtype.JSON{Status: pgtype.Null}
+	if sourceData != nil {
+		data.Status = pgtype.Present
+		data.Bytes, err = json.Marshal(sourceData)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	source, err := db.q.SetSourceData(ctx, base.SetSourceDataParams{UserID: userID, ID: sourceID, Kind: base.SourceKindArticle, Data: data})
+	if err != nil {
+		return nil, err
+	}
+
+	return &source, nil
+}
+
+func (db *DB) SetSourcePerson(userID int64, sourceID int64, sourceData *SourcePersonData) (*Source, error) {
+	var err error
+	data := pgtype.JSON{Status: pgtype.Null}
+	if sourceData != nil {
+		data.Status = pgtype.Present
+		data.Bytes, err = json.Marshal(sourceData)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	source, err := db.q.SetSourceData(ctx, base.SetSourceDataParams{UserID: userID, ID: sourceID, Kind: base.SourceKindPerson, Data: data})
+	if err != nil {
+		return nil, err
+	}
+
+	return &source, nil
+}
+
+func (db *DB) SetSourceUnknown(userID int64, sourceID int64) (*Source, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	data := pgtype.JSON{Status: pgtype.Null}
+	source, err := db.q.SetSourceData(ctx, base.SetSourceDataParams{UserID: userID, ID: sourceID, Kind: base.SourceKindUnknown, Data: data})
+	if err != nil {
+		return nil, err
+	}
+
+	return &source, nil
+
+}
+
+type QuerySourcesParams struct {
+	UserID     int64
+	NameQuery  string
+	SourceKind string
+	Limit      int32
+	BaseID     int64
+	Before     bool
+}
+
+func (db *DB) QuerySources(p QuerySourcesParams) ([]Source, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	if p.Before {
+		if p.SourceKind == "" {
+			return db.q.QuerySourcesBefore(ctx, base.QuerySourcesBeforeParams{
+				UserID:  p.UserID,
+				ID:      p.BaseID,
+				Column3: sql.NullString{Valid: true, String: p.NameQuery},
+				Limit:   p.Limit,
+			})
+		} else {
+			return db.q.QuerySourcesBeforeWithKind(ctx, base.QuerySourcesBeforeWithKindParams{
+				UserID:  p.UserID,
+				ID:      p.BaseID,
+				Kind:    base.SourceKind(p.SourceKind),
+				Column4: sql.NullString{Valid: true, String: p.NameQuery},
+				Limit:   p.Limit,
+			})
+		}
+	}
+
+	if p.SourceKind == "" {
+		return db.q.QuerySourcesAfter(ctx, base.QuerySourcesAfterParams{
+			UserID:  p.UserID,
+			ID:      p.BaseID,
+			Column3: sql.NullString{Valid: true, String: p.NameQuery},
+			Limit:   p.Limit,
+		})
+	}
+
+	return db.q.QuerySourcesAfterWithKind(ctx, base.QuerySourcesAfterWithKindParams{
+		UserID:  p.UserID,
+		ID:      p.BaseID,
+		Kind:    base.SourceKind(p.SourceKind),
+		Column4: sql.NullString{Valid: true, String: p.NameQuery},
+		Limit:   p.Limit,
+	})
+}
+
 func (db *DB) SetActiveSource(userID int64, activeSourceStr string, activeSourceExpireTime time.Time) (*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
@@ -250,6 +400,10 @@ func (db *DB) DeleteOutput(userID int64, outputChatID int64) error {
 }
 
 func (db *DB) DoCallback(user *User, callbackData *models.CallbackData) error {
+	if callbackData.Action == "" {
+		return nil
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
 	switch callbackData.Action {

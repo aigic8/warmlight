@@ -159,6 +159,68 @@ type reactSetActiveSourceTestCase struct {
 	Reply string
 }
 
+type reactGetSourcesTestCase struct {
+	Name    string
+	Query   string
+	Results []string
+}
+
+func TestReactGetSources(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+	var userID int64 = 1234
+	var chatID int64 = 1
+	firstName := "aigic8"
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	s1Name := "aaa"
+	s2Name := "aaaa"
+	s3Name := "aaaaa"
+	availableSources := []string{s1Name, s2Name, s3Name}
+	sourcesMap := map[string]db.Source{}
+	for _, sourceName := range availableSources {
+		source, err := appDB.CreateSource(userID, sourceName)
+		if err != nil {
+			panic(err)
+		}
+		sourcesMap[sourceName] = *source
+	}
+
+	s1New, err := appDB.SetSourceBook(userID, sourcesMap[s1Name].ID, nil)
+	if err != nil {
+		panic(err)
+	}
+	sourcesMap[s1Name] = *s1New
+
+	h := Handlers{db: appDB}
+
+	testCases := []reactGetSourcesTestCase{
+		{Name: "normal", Query: s1Name, Results: []string{s1Name, s2Name, s3Name}},
+		{Name: "noResult", Query: "bbb", Results: []string{}},
+		{Name: "withSourceKindFilter", Query: s1Name + " @unknown", Results: []string{s2Name, s3Name}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			update := makeTestMessageUpdate(userID, firstName, COMMAND_GET_SOURCES+" "+tc.Query)
+			r, err := h.reactGetSources(user, update)
+			assert.Nil(t, err)
+			assert.Equal(t, 1, len(r.Messages))
+
+			sources := []db.Source{}
+			for _, sourceName := range tc.Results {
+				sources = append(sources, sourcesMap[sourceName])
+			}
+
+			assert.Equal(t, strListOfSources(sources), r.Messages[0].Text)
+			assert.Equal(t, utils.SourcesReplyMarkup(sources, true, true), r.Messages[0].ReplyMarkup)
+		})
+	}
+}
+
 func TestReactSetActiveSource(t *testing.T) {
 	appDB := mustInitDB(TEST_DB_URL)
 	defer appDB.Close()

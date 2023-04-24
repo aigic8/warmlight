@@ -45,6 +45,21 @@ WITH created_id AS (
   INSERT INTO sources (user_id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id
 ) SELECT id FROM created_id UNION ALL SELECT id FROM sources WHERE user_id = $1 AND name = $2 LIMIT 1;
 
+-- name: QuerySourcesAfter :many
+SELECT * FROM sources WHERE user_id = $1 AND id > $2 AND name LIKE '%' || $3 || '%' ORDER BY id ASC LIMIT $4;
+
+-- name: QuerySourcesAfterWithKind :many
+SELECT * FROM sources WHERE user_id = $1 AND id > $2 AND kind = $3 AND name LIKE '%' || $4 || '%' ORDER BY id ASC LIMIT $5;
+
+-- name: QuerySourcesBefore :many
+SELECT * FROM sources WHERE user_id = $1 AND id < $2 AND name LIKE '%' || $3 || '%' ORDER BY id DESC LIMIT $4;
+
+-- name: QuerySourcesBeforeWithKind :many
+SELECT * FROM sources WHERE user_id = $1 AND id < $2 AND kind = $3 AND name LIKE '%' || $4 || '%' ORDER BY id DESC LIMIT $5;
+
+-- name: SetSourceData :one
+UPDATE sources SET kind = $1, data = $2  WHERE user_id = $3 AND id = $4 RETURNING *;
+
 ---------- OUTPUTS -----------
 
 -- name: CreateOutput :one

@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/aigic8/warmlight/internal/db"
 	"github.com/aigic8/warmlight/pkg/bot/utils"
@@ -13,6 +14,7 @@ const COMMAND_START = "/start"
 const COMMAND_SET_ACTIVE_SOURCE = "/setactivesource"
 const COMMAND_GET_OUTPUTS = "/getoutputs"
 const COMMAND_DEACTIVATE_SOURCE = "/deactivatesource"
+const COMMAND_GET_SOURCES = "/getsources"
 
 const strInternalServerErr = "Internal server error happened!\nPlease retry"
 const strQuoteAdded = "Quote added"
@@ -37,6 +39,7 @@ const strSourceTimeoutShouldBeGreaterThanZero = "active source timeout should be
 const strActiveSourceExpired = "active source expired"
 const strQuoteAddedButFailedToPublish = "quote is added but failed to publish in channels"
 const strNoActiveSource = "You currently have no active sources!"
+const strOnlyOneSourceKindFilterIsAllowed = "Currently you can not use more than one filter for sources!"
 
 func strActiveSourceDeactivated(sourceName string) string {
 	return "source '" + sourceName + "' deactivated"
@@ -51,18 +54,32 @@ func strSourceDoesExist(sourceName string) string {
 }
 
 // IMPORTANT needs support for Markdown parseMode
+func strListOfSources(sources []db.Source) string {
+	if len(sources) == 0 {
+		return "No source was found!"
+	}
+
+	text := "Found sources:\n"
+	for i, source := range sources {
+		text += strconv.Itoa(i+1) + ". *" + bot.EscapeMarkdown(source.Name) + "*" + " \\- " + string(source.Kind) + "\n"
+	}
+
+	return text
+}
+
+// IMPORTANT needs support for Markdown parseMode
 func strListOfYourOutputs(outputs []db.Output) string {
 	if len(outputs) == 0 {
 		return "You have no outputs.\n To add an output you need to set the bot as admin of a channel.\n If you have already done that, please redo it and try again."
 	}
 
-	text := ""
-	for _, output := range outputs {
+	text := "Your outputs are:\n"
+	for i, output := range outputs {
 		state := "deactive"
 		if output.IsActive {
 			state = "active"
 		}
-		text += "*" + bot.EscapeMarkdown(output.Title) + "* - " + state
+		text += strconv.Itoa(i+1) + ". *" + bot.EscapeMarkdown(output.Title) + "*" + " \\- " + state + "\n"
 	}
 	return text
 }

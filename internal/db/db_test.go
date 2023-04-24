@@ -2,9 +2,12 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/aigic8/warmlight/internal/db/base"
+	"github.com/jackc/pgtype"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -110,6 +113,188 @@ func TestDBGetSource(t *testing.T) {
 	source, err := appDB.GetSource(user.ID, sourceName)
 	assert.Nil(t, err)
 	assert.Equal(t, sourceName, source.Name)
+}
+
+type setSourceBookTestCase struct {
+	Name       string
+	SourceID   int64
+	SourceName string
+	SourceData *SourceBookData
+}
+
+func TestDBSetSourceBook(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	var userID int64 = 10
+	var chatID int64 = 1
+	firstName := "aigic8"
+
+	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	socialAnimalName := "The social animal"
+	tyrannyOfMeritName := "The tyranny of merit"
+	availableSources := []string{socialAnimalName, tyrannyOfMeritName}
+	sourceIDs := map[string]int64{}
+	for _, sourceName := range availableSources {
+		source, err := appDB.CreateSource(userID, sourceName)
+		if err != nil {
+			panic(err)
+		}
+		sourceIDs[sourceName] = source.ID
+	}
+
+	socialAnimalSD := SourceBookData{Author: "Elliot Aronson", LinkToInfo: "https://wikipedia.com/the-social-animal", LinkToAuthor: "https://wikipedia.com/elliot-aronson"}
+	testCases := []setSourceBookTestCase{
+		{Name: "normal", SourceID: sourceIDs[socialAnimalName], SourceName: socialAnimalName, SourceData: &socialAnimalSD},
+		{Name: "nil", SourceID: sourceIDs[tyrannyOfMeritName], SourceName: tyrannyOfMeritName},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			_, err = appDB.SetSourceBook(userID, tc.SourceID, tc.SourceData)
+			assert.Nil(t, err)
+
+			source, err := appDB.GetSource(userID, tc.SourceName)
+			if err != nil {
+				panic(err)
+			}
+
+			assert.Equal(t, base.SourceKindBook, source.Kind)
+			if tc.SourceData != nil {
+				assert.Equal(t, pgtype.Present, source.Data.Status)
+
+				var resSourceData SourceBookData
+				if err = json.Unmarshal(source.Data.Bytes, &resSourceData); err != nil {
+					panic(err)
+				}
+
+				assert.Equal(t, tc.SourceData.Author, resSourceData.Author)
+				assert.Equal(t, tc.SourceData.LinkToAuthor, resSourceData.LinkToAuthor)
+				assert.Equal(t, tc.SourceData.LinkToInfo, resSourceData.LinkToInfo)
+			} else {
+				assert.Equal(t, pgtype.Null, source.Data.Status)
+			}
+		})
+	}
+}
+
+type setSourceUnknownTestCase struct {
+	Name       string
+	SourceID   int64
+	SourceName string
+}
+
+func TestDBSetSourceUnknown(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	var userID int64 = 10
+	var chatID int64 = 1
+	firstName := "aigic8"
+
+	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	socialAnimalName := "The social animal"
+	availableSources := []string{socialAnimalName, "The tyranny of merit"}
+	sourceIDs := map[string]int64{}
+	for _, sourceName := range availableSources {
+		source, err := appDB.CreateSource(userID, sourceName)
+		if err != nil {
+			panic(err)
+		}
+
+		// since default source kind is "unknown" we need to change it
+		// to book before testing to make sure SetSourceUnknown works
+		_, err = appDB.SetSourceBook(userID, source.ID, nil)
+		if err != nil {
+			panic(err)
+		}
+
+		sourceIDs[sourceName] = source.ID
+	}
+
+	testCases := []setSourceUnknownTestCase{
+		{Name: "normal", SourceID: sourceIDs[socialAnimalName], SourceName: socialAnimalName},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			_, err = appDB.SetSourceUnknown(userID, tc.SourceID)
+			assert.Nil(t, err)
+
+			source, err := appDB.GetSource(userID, tc.SourceName)
+			if err != nil {
+				panic(err)
+			}
+
+			assert.Equal(t, base.SourceKindUnknown, source.Kind)
+			assert.Equal(t, pgtype.Null, source.Data.Status)
+		})
+	}
+}
+
+type querySourcesTestCase struct {
+	Name       string
+	Query      string
+	SourceKind string
+	Limit      int32
+	BaseID     int64
+	Before     bool
+	Results    []string
+}
+
+func TestDBQuerySources(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	var userID int64 = 10
+	var chatID int64 = 1
+	firstName := "aigic8"
+
+	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	articleSourceName := "aaa"
+	availableSources := []string{articleSourceName, "aaaaa", "aaaaaaa", "aaaaaaaaaa"}
+	sourceIDs := map[string]int64{}
+	for _, sourceName := range availableSources {
+		source, err := appDB.CreateSource(userID, sourceName)
+		if err != nil {
+			panic(err)
+		}
+
+		sourceIDs[sourceName] = source.ID
+	}
+
+	_, err = appDB.SetSourceArticle(userID, sourceIDs[articleSourceName], nil)
+	if err != nil {
+		panic(err)
+	}
+
+	testCases := []querySourcesTestCase{
+		{Name: "normal", Query: "aaa", SourceKind: "", Results: availableSources, Limit: 10},
+		{Name: "withLimit", Query: "aaa", SourceKind: "", Results: availableSources[:3], Limit: 3},
+		{Name: "withSourceKind", Query: "aaa", SourceKind: "article", Results: []string{articleSourceName}, Limit: 10},
+		{Name: "afterID", Query: "aaa", SourceKind: "", Results: availableSources[1:], Limit: 10, BaseID: sourceIDs["aaa"]},
+		{Name: "beforeID", Query: "aaa", SourceKind: "", Results: []string{articleSourceName}, Limit: 10, BaseID: sourceIDs["aaaaa"], Before: true},
+		{Name: "empty", Query: "bbb", SourceKind: "", Results: []string{}, Limit: 10},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			sources, err := appDB.QuerySources(QuerySourcesParams{UserID: userID, NameQuery: tc.Query, SourceKind: tc.SourceKind, Limit: tc.Limit, BaseID: tc.BaseID, Before: tc.Before})
+			assert.Nil(t, err)
+
+			sourceNames := []string{}
+			for _, source := range sources {
+				sourceNames = append(sourceNames, source.Name)
+			}
+			assert.ElementsMatch(t, tc.Results, sourceNames)
+		})
+	}
 }
 
 func TestDBGetSourceErrDoesNotFound(t *testing.T) {
