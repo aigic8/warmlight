@@ -490,6 +490,36 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 				return u.Reaction{}, err
 			}
 			return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(user.ChatID, infoStr)}}, nil
+		case m.CALLBACK_COMMAND_SOURCE_EDIT:
+			sourceID, err := strconv.ParseInt(callbackData.Data, 10, 0)
+			if err != nil {
+				return u.Reaction{}, err
+			}
+			source, err := h.db.GetSourceByID(user.ID, sourceID)
+			if err != nil {
+				if errors.Is(err, db.ErrNotFound) {
+					return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(user.ChatID, strSourceNoLongerExists)}}, nil
+				}
+				return u.Reaction{}, err
+			}
+
+			if _, err = h.db.SetUserStateEditingSource(user.ID, sourceID); err != nil {
+				return u.Reaction{}, err
+			}
+
+			sourceData, err := u.ParseSourceData(source.Kind, source.Data)
+			if err != nil {
+				return u.Reaction{}, err
+			}
+
+			msgText, err := strEditSource(source, sourceData)
+			if err != nil {
+				return u.Reaction{}, err
+			}
+
+			return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(user.ChatID, msgText)}}, nil
+		default:
+			return u.Reaction{}, errors.New("unknown callback data action")
 		}
 	}
 

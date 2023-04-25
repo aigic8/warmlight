@@ -16,6 +16,7 @@ import (
 var ErrNotFound = pgx.ErrNoRows
 
 type User = base.User
+type UserState = base.UserState
 type Output = base.Output
 type Source = base.Source
 type SourceKind = base.SourceKind
@@ -26,6 +27,9 @@ const SourceKindUnknown = base.SourceKindUnknown
 const SourceKindBook = base.SourceKindBook
 const SourceKindPerson = base.SourceKindPerson
 const SourceKindArticle = base.SourceKindArticle
+
+const UserStateNormal = base.UserStateNormal
+const UserStateEditingSource = base.UserStateEditingSource
 
 type DB struct {
 	pool    *pgxpool.Pool
@@ -55,6 +59,12 @@ type (
 	}
 )
 
+type (
+	StateEditingSourceData struct {
+		SourceID int64 `json:"sourceID"`
+	}
+)
+
 func NewDB(URL string, timeout time.Duration) (*DB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -77,6 +87,38 @@ func (db *DB) GetUser(ID int64) (*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
 	user, err := db.q.GetUser(ctx, ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (db *DB) SetUserStateNormal(userID int64) (*User, error) {
+	// FIXME test SetUserStateNormal
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	user, err := db.q.SetUserState(ctx, base.SetUserStateParams{ID: userID, State: UserStateNormal, StateData: pgtype.JSON{Status: pgtype.Null}})
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (db *DB) SetUserStateEditingSource(userID int64, sourceID int64) (*User, error) {
+	// FIXME test SetUserStateEditingSource
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+
+	data := StateEditingSourceData{SourceID: sourceID}
+	dataBytes, err := json.Marshal(&data)
+	if err != nil {
+		return nil, err
+	}
+	stateData := pgtype.JSON{Bytes: dataBytes, Status: pgtype.Present}
+
+	user, err := db.q.SetUserState(ctx, base.SetUserStateParams{ID: userID, State: UserStateEditingSource, StateData: stateData})
 	if err != nil {
 		return nil, err
 	}

@@ -42,13 +42,74 @@ func TestDBGetOrCreateUser(t *testing.T) {
 	user, isCreated, err := appDB.GetOrCreateUser(ID, chatID, firstName)
 	assert.Nil(t, err)
 	assert.True(t, isCreated)
-	assert.Equal(t, user.ID, ID)
+	assert.Equal(t, ID, user.ID)
+	assert.Equal(t, UserStateNormal, user.State)
 	assert.Equal(t, user.FirstName, firstName)
 
 	user2, isCreated2, err := appDB.GetOrCreateUser(ID, chatID, firstName)
 	assert.Nil(t, err)
 	assert.False(t, isCreated2)
-	assert.Equal(t, user2.ID, ID)
+	assert.Equal(t, ID, user2.ID)
+}
+
+func TestDBSetUserStateNormal(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+	var ID int64 = 1234
+	var chatID int64 = 1
+	firstName := "aigic8"
+
+	_, created, err := appDB.GetOrCreateUser(ID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	if !created {
+		panic("user should be created")
+	}
+
+	user, err := appDB.SetUserStateEditingSource(ID, 1)
+	if err != nil {
+		panic(err)
+	}
+
+	if user.State != UserStateEditingSource {
+		panic("user state should be editing source")
+	}
+
+	resUser, err := appDB.SetUserStateNormal(user.ID)
+	assert.Nil(t, err)
+	assert.Equal(t, UserStateNormal, resUser.State)
+	assert.Equal(t, pgtype.Null, resUser.StateData.Status)
+}
+
+func TestDBSetUserStateEditingSource(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+	var ID int64 = 1234
+	var chatID int64 = 1
+	firstName := "aigic8"
+	var sourceID int64 = 10
+
+	_, created, err := appDB.GetOrCreateUser(ID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	if !created {
+		panic("user should be created")
+	}
+
+	user, err := appDB.SetUserStateEditingSource(ID, sourceID)
+	assert.Nil(t, err)
+	assert.Equal(t, UserStateEditingSource, user.State)
+	assert.Equal(t, pgtype.Present, user.StateData.Status)
+
+	var stateData StateEditingSourceData
+	if err := json.Unmarshal(user.StateData.Bytes, &stateData); err != nil {
+		panic(err)
+	}
+	assert.Equal(t, sourceID, stateData.SourceID)
 }
 
 func TestDBCreateSource(t *testing.T) {

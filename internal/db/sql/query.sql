@@ -9,6 +9,12 @@ INSERT INTO users (id, chat_id, first_name) VALUES ($1, $2, $3) RETURNING *;
 -- name: CreateSource :one
 INSERT INTO sources (user_id, name) VALUES ($1, $2) RETURNING *;
 
+-- name: SetUserState :one
+UPDATE users SET
+  state = $2,
+  state_data = $3
+WHERE id = $1 RETURNING *;
+
 -- name: SetActiveSource :one
 UPDATE users SET
   active_source = $2,

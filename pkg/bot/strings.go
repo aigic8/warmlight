@@ -79,6 +79,15 @@ func strSourceInfo(source *db.Source, sourceData any) (string, error) {
 	}
 }
 
+func strEditSource(source *db.Source, sourceData any) (string, error) {
+	sourceInfo, err := strSourceInfo(source, sourceData)
+	if err != nil {
+		return "", err
+	}
+
+	return "Current:\n" + sourceInfo + "To update use bla bla bla. TODO", nil
+}
+
 // IMPORTANT needs support for Markdown parseMode
 func strListOfSources(sources []db.Source) string {
 	if len(sources) == 0 {
