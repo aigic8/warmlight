@@ -350,7 +350,7 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 		if errors.Is(err, db.ErrNotFound) {
 			return u.Reaction{
 				Messages: []bot.SendMessageParams{
-					u.TextReplyToMessage(update.Message, strSourceDoesExist(args[0])),
+					u.TextReplyToMessage(update.Message, strSourceDoesNotExist(args[0])),
 				},
 			}, nil
 		}
@@ -435,6 +435,7 @@ func (h Handlers) reactDeactivateSource(user *db.User, update *models.Update) (u
 }
 
 func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) {
+	// FIXME test reactCallbackQuery
 	user, err := h.db.GetUser(update.CallbackQuery.Sender.ID)
 	if err != nil {
 		if !errors.Is(err, db.ErrNotFound) {
@@ -448,8 +449,48 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 		return u.Reaction{}, err
 	}
 
-	if err = h.db.DoCallback(user, &callbackData); err != nil {
-		return u.Reaction{}, err
+	if callbackData.Action != "" {
+		switch callbackData.Action {
+		case m.CALLBACK_COMMAND_ACTIVATE_OUTPUT:
+			outputChatID, err := strconv.ParseInt(callbackData.Data, 10, 0)
+			if err != nil {
+				return u.Reaction{}, err
+			}
+			if _, err = h.db.ActivateOutput(user.ID, outputChatID); err != nil {
+				return u.Reaction{}, err
+			}
+		case m.CALLBACK_COMMAND_DEACTIVATE_OUTPUT:
+			outputChatID, err := strconv.ParseInt(callbackData.Data, 10, 0)
+			if err != nil {
+				return u.Reaction{}, err
+			}
+			if _, err = h.db.DeactivateOutput(user.ID, outputChatID); err != nil {
+				return u.Reaction{}, err
+			}
+		case m.CALLBACK_COMMAND_SOURCE_INFO:
+			sourceID, err := strconv.ParseInt(callbackData.Data, 10, 0)
+			if err != nil {
+				return u.Reaction{}, err
+			}
+			source, err := h.db.GetSourceByID(user.ID, sourceID)
+			if err != nil {
+				if errors.Is(err, db.ErrNotFound) {
+					return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(user.ChatID, strSourceNoLongerExists)}}, nil
+				}
+				return u.Reaction{}, err
+			}
+
+			sourceData, err := u.ParseSourceData(source.Kind, source.Data)
+			if err != nil {
+				return u.Reaction{}, err
+			}
+
+			infoStr, err := strSourceInfo(source, sourceData)
+			if err != nil {
+				return u.Reaction{}, err
+			}
+			return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(user.ChatID, infoStr)}}, nil
+		}
 	}
 
 	if callbackData.ReplaceMessageWith == m.CALLBACK_MSG_OUTPUTS_LIST {

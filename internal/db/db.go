@@ -5,11 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"strconv"
 	"time"
 
 	"github.com/aigic8/warmlight/internal/db/base"
-	"github.com/aigic8/warmlight/pkg/bot/models"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -23,6 +21,11 @@ type Source = base.Source
 type SourceKind = base.SourceKind
 type QuoteSearchResult = base.SearchQuotesRow
 type CreateQuoteResult = base.CreateQuoteRow
+
+const SourceKindUnknown = base.SourceKindUnknown
+const SourceKindBook = base.SourceKindBook
+const SourceKindPerson = base.SourceKindPerson
+const SourceKindArticle = base.SourceKindArticle
 
 type DB struct {
 	pool    *pgxpool.Pool
@@ -176,6 +179,18 @@ func (db *DB) GetSource(userID int64, name string) (*Source, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
 	source, err := db.q.GetSource(ctx, base.GetSourceParams{UserID: userID, Name: name})
+	if err != nil {
+		return nil, err
+	}
+
+	return &source, nil
+}
+
+func (db *DB) GetSourceByID(userID int64, sourceID int64) (*Source, error) {
+	// FIXME test GetSourceByID
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	source, err := db.q.GetSourceByID(ctx, base.GetSourceByIDParams{UserID: userID, ID: sourceID})
 	if err != nil {
 		return nil, err
 	}
@@ -366,6 +381,16 @@ func (db *DB) ActivateOutput(userID int64, outputChatID int64) (*Output, error) 
 	return &output, nil
 }
 
+func (db *DB) DeactivateOutput(userID int64, outputChatID int64) (*Output, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+	output, err := db.q.DeactivateOutput(ctx, base.DeactivateOutputParams{UserID: userID, ChatID: outputChatID})
+	if err != nil {
+		return nil, err
+	}
+	return &output, nil
+}
+
 func (db *DB) GetOrCreateOutput(userID int64, chatID int64, chatTitle string) (*Output, bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
@@ -397,39 +422,6 @@ func (db *DB) DeleteOutput(userID int64, outputChatID int64) error {
 	defer cancel()
 	err := db.q.DeleteOutput(ctx, base.DeleteOutputParams{UserID: userID, ChatID: outputChatID})
 	return err
-}
-
-func (db *DB) DoCallback(user *User, callbackData *models.CallbackData) error {
-	if callbackData.Action == "" {
-		return nil
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
-	defer cancel()
-	switch callbackData.Action {
-	case models.CALLBACK_COMMAND_ACTIVATE_OUTPUT:
-		outputChatID, err := strconv.ParseInt(callbackData.Data, 10, 0)
-		if err != nil {
-			return err
-		}
-		_, err = db.q.ActivateOutput(ctx, base.ActivateOutputParams{ChatID: outputChatID, UserID: user.ID})
-		if err != nil {
-			return err
-		}
-	case models.CALLBACK_COMMAND_DEACTIVATE_OUTPUT:
-		outputChatID, err := strconv.ParseInt(callbackData.Data, 10, 0)
-		if err != nil {
-			return err
-		}
-		_, err = db.q.DeactivateOutput(ctx, base.DeactivateOutputParams{ChatID: outputChatID, UserID: user.ID})
-		if err != nil {
-			return err
-		}
-	default:
-		return errors.New("unknown callback data action")
-	}
-
-	return nil
 }
 
 func (db *DB) DEBUGCleanDB() error {

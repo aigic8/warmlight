@@ -40,6 +40,7 @@ const strActiveSourceExpired = "active source expired"
 const strQuoteAddedButFailedToPublish = "quote is added but failed to publish in channels"
 const strNoActiveSource = "You currently have no active sources!"
 const strOnlyOneSourceKindFilterIsAllowed = "Currently you can not use more than one filter for sources!"
+const strSourceNoLongerExists = "Source no longer exists"
 
 func strActiveSourceDeactivated(sourceName string) string {
 	return "source '" + sourceName + "' deactivated"
@@ -49,8 +50,33 @@ func strActiveSourceIsSet(sourceName string, timeoutMinutes int) string {
 	return fmt.Sprintf("The source '%s' is set as active source for %d minutes", sourceName, timeoutMinutes)
 }
 
-func strSourceDoesExist(sourceName string) string {
+func strSourceDoesNotExist(sourceName string) string {
 	return fmt.Sprintf("Source '%s' does not exist", sourceName)
+}
+
+func strSourceInfo(source *db.Source, sourceData any) (string, error) {
+	switch source.Kind {
+	case db.SourceKindUnknown:
+		return source.Name + " (unknown)", nil
+	case db.SourceKindBook:
+		sd := sourceData.(db.SourceBookData)
+		return fmt.Sprintf("%s (book):\ninfo url: %s\nauthor: %s\nauthor url: %s", source.Name, sd.LinkToInfo, sd.Author, sd.LinkToAuthor), nil
+	case db.SourceKindPerson:
+		sd := sourceData.(db.SourcePersonData)
+		var bornOnStr, deathOnStr string
+		if !sd.BornOn.IsZero() {
+			bornOnStr = strconv.Itoa(sd.BornOn.Year())
+		}
+		if !sd.DeathOn.IsZero() {
+			deathOnStr = strconv.Itoa(sd.DeathOn.Year())
+		}
+		return fmt.Sprintf("%s (person):\ninfo url: %s\ntitle: %s\nlived in: %s-%s", source.Name, sd.LinkToInfo, sd.Title, bornOnStr, deathOnStr), nil
+	case db.SourceKindArticle:
+		sd := sourceData.(db.SourceArticleData)
+		return fmt.Sprintf("%s (article):\nurl: %s\nauthor: %s\n", source.Name, sd.URL, sd.Author), nil
+	default:
+		return "", utils.ErrUnknownSourceKind
+	}
 }
 
 // IMPORTANT needs support for Markdown parseMode

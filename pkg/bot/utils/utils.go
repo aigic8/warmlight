@@ -1,13 +1,25 @@
 package utils
 
 import (
+	"encoding/json"
+	"errors"
 	"strconv"
 
 	"github.com/aigic8/warmlight/internal/db"
 	m "github.com/aigic8/warmlight/pkg/bot/models"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/jackc/pgtype"
 )
+
+var ErrUnknownSourceKind = errors.New("unknown source kind")
+
+func TextMessage(chatID int64, text string) bot.SendMessageParams {
+	return bot.SendMessageParams{
+		ChatID: chatID,
+		Text:   text,
+	}
+}
 
 func TextReplyToMessage(message *models.Message, text string) bot.SendMessageParams {
 	return bot.SendMessageParams{
@@ -78,6 +90,37 @@ func MakeSourceKeyboardPagesCallbacks(firstSourceID, lastSourceID int64) (string
 	}
 
 	return prevPageCallbackData.Marshal(), nextPageCallbackData.Marshal()
+}
+
+func ParseSourceData(sourceKind db.SourceKind, sourceData pgtype.JSON) (any, error) {
+	if sourceData.Status != pgtype.Present {
+		return nil, nil
+	}
+
+	switch sourceKind {
+	case db.SourceKindUnknown:
+		return nil, nil
+	case db.SourceKindBook:
+		var data db.SourceBookData
+		if err := json.Unmarshal(sourceData.Bytes, &data); err != nil {
+			return nil, err
+		}
+		return data, nil
+	case db.SourceKindPerson:
+		var data db.SourcePersonData
+		if err := json.Unmarshal(sourceData.Bytes, &data); err != nil {
+			return nil, err
+		}
+		return data, nil
+	case db.SourceKindArticle:
+		var data db.SourceArticleData
+		if err := json.Unmarshal(sourceData.Bytes, &data); err != nil {
+			return nil, err
+		}
+		return data, nil
+	default:
+		return nil, ErrUnknownSourceKind
+	}
 }
 
 func SourcesReplyMarkup(sources []db.Source, firstPage, lastPage bool) models.InlineKeyboardMarkup {

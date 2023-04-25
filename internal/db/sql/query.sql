@@ -40,6 +40,10 @@ SELECT id, text, main_source, user_id, created_at, updated_at FROM quotes WHERE 
 -- name: GetSource :one
 SELECT * FROM sources WHERE user_id = $1 AND name = $2;
 
+
+-- name: GetSourceByID :one
+SELECT * FROM sources WHERE user_id = $1 AND id = $2;
+
 -- name: GetOrCreateSource :one
 WITH created_id AS (
   INSERT INTO sources (user_id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id
