@@ -70,6 +70,9 @@ SELECT * FROM sources WHERE user_id = $1 AND id < $2 AND kind = $3 AND name LIKE
 -- name: SetSourceData :one
 UPDATE sources SET kind = $1, data = $2  WHERE user_id = $3 AND id = $4 RETURNING *;
 
+-- name: UpdateSource :one
+UPDATE sources SET name = $1, kind = $2, data = $3, updated_at = NOW() WHERE user_id = $4 AND id = $5 RETURNING *;
+
 ---------- OUTPUTS -----------
 
 -- name: CreateOutput :one

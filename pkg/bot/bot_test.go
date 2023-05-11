@@ -1,12 +1,15 @@
 package bot
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/aigic8/warmlight/internal/db"
 	"github.com/aigic8/warmlight/pkg/bot/utils"
 	"github.com/go-telegram/bot/models"
+	"github.com/jackc/pgtype"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,7 +52,7 @@ func TestReactNewUser(t *testing.T) {
 	}
 }
 
-func TestReactDefaultNormal(t *testing.T) {
+func TestReactDefault(t *testing.T) {
 	appDB := mustInitDB(TEST_DB_URL)
 	defer appDB.Close()
 	var userID int64 = 1234
@@ -69,6 +72,60 @@ func TestReactDefaultNormal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, len(r.Messages), 1)
 	assert.Equal(t, r.Messages[0].Text, strQuoteAdded)
+}
+
+func TestReactStateEditingSource(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+	var userID int64 = 1234
+	var chatID int64 = 1
+	firstName := "aigic8"
+	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	sourceName := "Practical Statistics for Data Scientists"
+	source, err := appDB.CreateSource(userID, sourceName)
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err = appDB.SetUserStateEditingSource(userID, source.ID); err != nil {
+		panic(err)
+	}
+
+	h := Handlers{db: appDB}
+
+	sourceInfoURL := "https://www.oreilly.com/library/view/practical-statistics-for/9781492072935/"
+	sourceAuthor := "Peter Bruce"
+	updateMessage := fmt.Sprintf("%s: %s\n%s: %s\n%s: %s", SOURCE_KIND, "book", SOURCE_BOOK_AUTHOR, sourceAuthor, SOURCE_BOOK_INFO_URL, sourceInfoURL)
+	update := makeTestMessageUpdate(userID, firstName, updateMessage)
+
+	user, err := appDB.GetUser(userID)
+	if err != nil {
+		panic(err)
+	}
+	r, err := h.reactStateEditingSource(user, update)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(r.Messages))
+
+	expectedSourceData := db.SourceBookData{
+		Author:     sourceAuthor,
+		LinkToInfo: sourceInfoURL,
+	}
+	expectedSourceDataBytes, err := json.Marshal(&expectedSourceData)
+	if err != nil {
+		panic(err)
+	}
+
+	expectedSourceDataJson := pgtype.JSON{Status: pgtype.Present, Bytes: expectedSourceDataBytes}
+	expectedText, err := strUpdatedSource(&db.Source{Name: sourceName, Kind: db.SourceKindBook, Data: expectedSourceDataJson})
+	if err != nil {
+		panic(err)
+	}
+
+	assert.Equal(t, expectedText, r.Messages[0].Text)
 }
 
 func TestReactDefaultWithOutput(t *testing.T) {

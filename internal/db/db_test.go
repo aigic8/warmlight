@@ -297,6 +297,53 @@ func TestDBSetSourceUnknown(t *testing.T) {
 	}
 }
 
+func TestDBUpdateSource(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+
+	var userID int64 = 10
+	var chatID int64 = 1
+	firstName := "aigic8"
+	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	sourceName := "Practical Statistics for Data Scientists"
+	source, err := appDB.CreateSource(userID, sourceName)
+	if err != nil {
+		panic(err)
+	}
+
+	sourceKind := SourceKindBook
+	sourceAuthor := "Peter Bruce"
+	sourceInfoURL := "https://www.oreilly.com/library/view/practical-statistics-for/9781492072935/"
+	source.Kind = sourceKind
+
+	sourceData := SourceBookData{
+		Author:     sourceAuthor,
+		LinkToInfo: sourceInfoURL,
+	}
+	sourceDataBytes, err := json.Marshal(&sourceData)
+	if err != nil {
+		panic(err)
+	}
+	source.Data.Bytes = sourceDataBytes
+	source.Data.Status = pgtype.Present
+
+	newSource, err := appDB.UpdateSource(userID, source)
+	assert.Nil(t, err)
+	assert.Equal(t, sourceKind, newSource.Kind)
+	assert.Equal(t, pgtype.Present, newSource.Data.Status)
+
+	var newSourceData SourceBookData
+	if err = json.Unmarshal(newSource.Data.Bytes, &newSourceData); err != nil {
+		panic(err)
+	}
+
+	assert.Equal(t, sourceAuthor, newSourceData.Author)
+	assert.Equal(t, sourceInfoURL, newSourceData.LinkToInfo)
+}
+
 type querySourcesTestCase struct {
 	Name       string
 	Query      string

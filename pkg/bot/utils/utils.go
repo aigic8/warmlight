@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/aigic8/warmlight/internal/db"
+	"github.com/aigic8/warmlight/internal/db/base"
 	m "github.com/aigic8/warmlight/pkg/bot/models"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -13,6 +16,7 @@ import (
 )
 
 var ErrUnknownSourceKind = errors.New("unknown source kind")
+var ErrMalformedDates = errors.New("malformed lived in dates")
 
 func TextMessage(chatID int64, text string) bot.SendMessageParams {
 	return bot.SendMessageParams{
@@ -90,6 +94,100 @@ func MakeSourceKeyboardPagesCallbacks(firstSourceID, lastSourceID int64) (string
 	}
 
 	return prevPageCallbackData.Marshal(), nextPageCallbackData.Marshal()
+}
+
+func IsValidSourceKind(sourceKind string) bool {
+	for _, validSourceKind := range db.VALID_SOURCE_KINDS {
+		if sourceKind == validSourceKind {
+			return true
+		}
+	}
+
+	return false
+}
+
+func EditMapToJsonBook(baseSource *db.Source, editMap map[string]string) ([]byte, error) {
+	sourceData := db.SourceBookData{}
+	if baseSource.Kind == db.SourceKindBook {
+		baseSourceData, err := ParseSourceData(db.SourceKindBook, baseSource.Data)
+		if err != nil {
+			return nil, err
+		}
+		sourceData = baseSourceData.(db.SourceBookData)
+	}
+
+	// FIXME use base package strings
+	if linkToInfo, exist := editMap["info url"]; exist {
+		sourceData.LinkToInfo = linkToInfo
+	}
+	if author, exist := editMap["author"]; exist {
+		sourceData.Author = author
+	}
+	if linkToAuthor, exist := editMap["author url"]; exist {
+		sourceData.LinkToAuthor = linkToAuthor
+	}
+
+	return json.Marshal(&sourceData)
+}
+
+func EditMapToJsonPerson(baseSource *db.Source, editMap map[string]string) ([]byte, error) {
+	sourceData := db.SourcePersonData{}
+	if baseSource.Kind == db.SourceKindPerson {
+		baseSourceData, err := ParseSourceData(db.SourceKindPerson, baseSource.Data)
+		if err != nil {
+			return nil, err
+		}
+
+		sourceData = baseSourceData.(db.SourcePersonData)
+	}
+
+	if linkToInfo, exist := editMap["info url"]; exist {
+		sourceData.LinkToInfo = linkToInfo
+	}
+	if title, exist := editMap["title"]; exist {
+		sourceData.Title = title
+	}
+	if livedIn, exist := editMap["lived in"]; exist {
+		dates := strings.Split(livedIn, "-")
+		if len(dates) != 2 {
+			return nil, ErrMalformedDates
+		}
+		bornOn, err := strconv.Atoi(dates[0])
+		if err != nil {
+			return nil, ErrMalformedDates
+		}
+
+		deathOn, err := strconv.Atoi(dates[1])
+		if err != nil {
+			return nil, ErrMalformedDates
+		}
+
+		sourceData.BornOn = time.Date(bornOn, 1, 1, 1, 1, 1, 1, time.UTC)
+		sourceData.DeathOn = time.Date(deathOn, 1, 1, 1, 1, 1, 1, time.UTC)
+	}
+
+	return json.Marshal(sourceData)
+}
+
+func EditMapToJsonArticle(baseSource *db.Source, editMap map[string]string) ([]byte, error) {
+	sourceData := db.SourceArticleData{}
+	if baseSource.Kind == base.SourceKindArticle {
+		baseSourceData, err := ParseSourceData(db.SourceKindPerson, baseSource.Data)
+		if err != nil {
+			return nil, err
+		}
+
+		sourceData = baseSourceData.(db.SourceArticleData)
+	}
+
+	if linkToInfo, exist := editMap["info url"]; exist {
+		sourceData.URL = linkToInfo
+	}
+	if author, exist := editMap["author"]; exist {
+		sourceData.Author = author
+	}
+
+	return json.Marshal(sourceData)
 }
 
 func ParseSourceData(sourceKind db.SourceKind, sourceData pgtype.JSON) (any, error) {

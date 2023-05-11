@@ -3,11 +3,14 @@ package bot
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/aigic8/warmlight/internal/db"
 	"github.com/aigic8/warmlight/pkg/bot/utils"
 	"github.com/go-telegram/bot"
 )
+
+// TODO separate package from bot package
 
 // Commands
 const COMMAND_START = "/start"
@@ -41,6 +44,24 @@ const strQuoteAddedButFailedToPublish = "quote is added but failed to publish in
 const strNoActiveSource = "You currently have no active sources!"
 const strOnlyOneSourceKindFilterIsAllowed = "Currently you can not use more than one filter for sources!"
 const strSourceNoLongerExists = "Source no longer exists"
+const strCanceledEditMode = "Operation canceled"
+const strGoingBackToNormalMode = "There was an error in operation. Canceled the operation."
+const strMalformedEditSourceText = "TODO edit text was malformed. Please rewrite it."
+const strMalformedPersonDates = "TODO malformed person dates"
+
+const SOURCE_NAME = "name"
+const SOURCE_KIND = "kind"
+
+const SOURCE_BOOK_AUTHOR = "author"
+const SOURCE_BOOK_INFO_URL = "info url"
+const SOURCE_BOOK_AUTHOR_URL = "author url"
+
+const SOURCE_PERSON_INFO_URL = "info url"
+const SOURCE_PERSON_TITLE = "title"
+const SOURCE_PERSON_LIVED_IN = "lived in"
+
+const SOURCE_ARTICLE_AUTHOR = "author"
+const SOURCE_ARTICLE_URL = "url"
 
 func strActiveSourceDeactivated(sourceName string) string {
 	return "source '" + sourceName + "' deactivated"
@@ -54,13 +75,31 @@ func strSourceDoesNotExist(sourceName string) string {
 	return fmt.Sprintf("Source '%s' does not exist", sourceName)
 }
 
+func strInvalidSourceKind(sourceKind string) string {
+	return fmt.Sprintf("Source kind '%s' is not a valid source kind. Valid source kinds are %s.", sourceKind, strings.Join(db.VALID_SOURCE_KINDS, ", "))
+}
+
+func strUpdatedSource(newSource *db.Source) (string, error) {
+	data, err := utils.ParseSourceData(newSource.Kind, newSource.Data)
+	if err != nil {
+		return "", err
+	}
+
+	sourceInfoStr, err := strSourceInfo(newSource, data)
+	if err != nil {
+		return "", err
+	}
+
+	return "updated successfully. New source info:\n" + sourceInfoStr, nil
+}
+
 func strSourceInfo(source *db.Source, sourceData any) (string, error) {
 	switch source.Kind {
 	case db.SourceKindUnknown:
 		return source.Name + " (unknown)", nil
 	case db.SourceKindBook:
 		sd := sourceData.(db.SourceBookData)
-		return fmt.Sprintf("%s (book):\ninfo url: %s\nauthor: %s\nauthor url: %s", source.Name, sd.LinkToInfo, sd.Author, sd.LinkToAuthor), nil
+		return fmt.Sprintf("%s (book):\n%s: %s\n%s: %s\n%s: %s", source.Name, SOURCE_BOOK_INFO_URL, sd.LinkToInfo, SOURCE_BOOK_AUTHOR, sd.Author, SOURCE_BOOK_AUTHOR_URL, sd.LinkToAuthor), nil
 	case db.SourceKindPerson:
 		sd := sourceData.(db.SourcePersonData)
 		var bornOnStr, deathOnStr string
@@ -70,10 +109,10 @@ func strSourceInfo(source *db.Source, sourceData any) (string, error) {
 		if !sd.DeathOn.IsZero() {
 			deathOnStr = strconv.Itoa(sd.DeathOn.Year())
 		}
-		return fmt.Sprintf("%s (person):\ninfo url: %s\ntitle: %s\nlived in: %s-%s", source.Name, sd.LinkToInfo, sd.Title, bornOnStr, deathOnStr), nil
+		return fmt.Sprintf("%s (person):\n%s: %s\n%s: %s\n%s: %s-%s", source.Name, SOURCE_PERSON_INFO_URL, sd.LinkToInfo, SOURCE_PERSON_TITLE, sd.Title, SOURCE_PERSON_LIVED_IN, bornOnStr, deathOnStr), nil
 	case db.SourceKindArticle:
 		sd := sourceData.(db.SourceArticleData)
-		return fmt.Sprintf("%s (article):\nurl: %s\nauthor: %s\n", source.Name, sd.URL, sd.Author), nil
+		return fmt.Sprintf("%s (article):\n%s: %s\n%s: %s\n", source.Name, SOURCE_ARTICLE_URL, sd.URL, SOURCE_ARTICLE_URL, sd.Author), nil
 	default:
 		return "", utils.ErrUnknownSourceKind
 	}

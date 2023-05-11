@@ -37,6 +37,8 @@ type DB struct {
 	Timeout time.Duration
 }
 
+var VALID_SOURCE_KINDS []string = []string{"unknown", "book", "person", "article"}
+
 type (
 	SourceBookData struct {
 		Author       string `json:"author,omitempty"`
@@ -46,12 +48,11 @@ type (
 
 	SourceArticleData struct {
 		URL    string `json:"url,omitempty"`
-		Title  string `json:"title,omitempty"`
 		Author string `json:"author,omitempty"`
 	}
 
+	// FIXME convert bornOn and deathOn to integers (only year is important)
 	SourcePersonData struct {
-		Name       string    `json:"name,omitempty"`
 		LinkToInfo string    `json:"linkToInfo,omitempty"`
 		Title      string    `json:"title,omitempty"`
 		BornOn     time.Time `json:"bornOn,omitempty"`
@@ -314,6 +315,22 @@ func (db *DB) SetSourceUnknown(userID int64, sourceID int64) (*Source, error) {
 
 	return &source, nil
 
+}
+
+func (db *DB) UpdateSource(userID int64, source *Source) (*Source, error) {
+	if source == nil {
+		return nil, errors.New("source is nil")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+
+	resSource, err := db.q.UpdateSource(ctx, base.UpdateSourceParams{Name: source.Name, Kind: source.Kind, Data: source.Data, ID: source.ID, UserID: userID})
+	if err != nil {
+		return nil, err
+	}
+
+	return &resSource, nil
 }
 
 type QuerySourcesParams struct {

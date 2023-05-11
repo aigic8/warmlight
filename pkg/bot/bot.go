@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	u "github.com/aigic8/warmlight/pkg/bot/utils"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/jackc/pgtype"
 	"github.com/rs/zerolog"
 )
 
@@ -153,6 +155,8 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 		switch {
 		case userCreated:
 			r, err = h.reactNewUser(user, update)
+		case user.State == db.UserStateEditingSource:
+			r, err = h.reactStateEditingSource(user, update)
 		case update.Message.Text == COMMAND_START:
 			r, err = h.reactAlreadyJoinedStart(user, update)
 		case strings.HasPrefix(update.Message.Text, COMMAND_SET_ACTIVE_SOURCE):
@@ -251,6 +255,110 @@ func (h Handlers) reactNewUser(user *db.User, update *models.Update) (u.Reaction
 			u.TextReplyToMessage(update.Message, messageText),
 		},
 	}, nil
+}
+
+func (h Handlers) reactStateEditingSource(user *db.User, update *models.Update) (u.Reaction, error) {
+	if update.Message.Text == "cancel" {
+		if _, err := h.db.SetUserStateNormal(user.ID); err != nil {
+			return u.Reaction{}, err
+		}
+		return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, strCanceledEditMode)}}, nil
+	}
+
+	var stateData db.StateEditingSourceData
+	if err := json.Unmarshal(user.StateData.Bytes, &stateData); err != nil {
+		if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
+			return u.Reaction{}, err
+		}
+		return u.Reaction{Messages: []bot.SendMessageParams{
+			u.TextMessage(update.Message.Chat.ID, strGoingBackToNormalMode),
+		}}, nil
+	}
+
+	currentSource, err := h.db.GetSourceByID(user.ID, stateData.SourceID)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
+				return u.Reaction{}, err
+			}
+			return u.Reaction{Messages: []bot.SendMessageParams{
+				u.TextReplyToMessage(update.Message, strSourceNoLongerExists),
+				u.TextMessage(update.Message.Chat.ID, strGoingBackToNormalMode),
+			}}, nil
+		}
+		return u.Reaction{}, err
+	}
+
+	editMap := map[string]string{}
+	for _, line := range strings.Split(update.Message.Text, "\n") {
+		if line == "" {
+			continue
+		}
+		lineParts := strings.SplitN(line, ":", 2)
+		if len(lineParts) < 2 {
+			return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(update.Message.Chat.ID, strMalformedEditSourceText)}}, nil
+		}
+		editMap[strings.TrimSpace(lineParts[0])] = strings.TrimSpace(lineParts[1])
+	}
+
+	kind := currentSource.Kind
+	if sourceKind, ok := editMap[SOURCE_KIND]; ok {
+		if !u.IsValidSourceKind(sourceKind) {
+			return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, strInvalidSourceKind(editMap["kind"]))}}, nil
+		}
+		kind = db.SourceKind(sourceKind)
+	}
+
+	newSource := *currentSource
+	switch kind {
+	case db.SourceKindUnknown:
+		newSource.Kind = db.SourceKindUnknown
+		newSource.Data = pgtype.JSON{Status: pgtype.Null}
+	case db.SourceKindBook:
+		newSource.Kind = db.SourceKindBook
+		jsonBytes, err := u.EditMapToJsonBook(currentSource, editMap)
+		if err != nil {
+			return u.Reaction{}, err
+		}
+		newSource.Data = pgtype.JSON{Bytes: jsonBytes, Status: pgtype.Present}
+	case db.SourceKindPerson:
+		newSource.Kind = db.SourceKindPerson
+		jsonBytes, err := u.EditMapToJsonPerson(currentSource, editMap)
+		if err != nil {
+			if errors.Is(err, u.ErrMalformedDates) {
+				return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, strMalformedPersonDates)}}, nil
+			}
+			return u.Reaction{}, err
+		}
+		newSource.Data = pgtype.JSON{Bytes: jsonBytes, Status: pgtype.Present}
+	case db.SourceKindArticle:
+		newSource.Kind = db.SourceKindArticle
+		jsonBytes, err := u.EditMapToJsonArticle(currentSource, editMap)
+		if err != nil {
+			return u.Reaction{}, err
+		}
+		newSource.Data = pgtype.JSON{Bytes: jsonBytes, Status: pgtype.Present}
+	}
+
+	if sourceName, ok := editMap[SOURCE_NAME]; ok {
+		newSource.Name = sourceName
+	}
+
+	resSource, err := h.db.UpdateSource(user.ID, &newSource)
+	if err != nil {
+		return u.Reaction{}, nil
+	}
+
+	updateStr, err := strUpdatedSource(resSource)
+	if err != nil {
+		return u.Reaction{}, nil
+	}
+
+	if _, err = h.db.SetUserStateNormal(update.Message.From.ID); err != nil {
+		return u.Reaction{}, err
+	}
+
+	return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, updateStr)}}, nil
 }
 
 func (h Handlers) reactAlreadyJoinedStart(user *db.User, update *models.Update) (u.Reaction, error) {
