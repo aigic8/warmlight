@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"os"
 	"path"
 	"time"
@@ -10,13 +12,18 @@ import (
 	"github.com/aigic8/warmlight/pkg/utils"
 )
 
+const DEFAULT_CONFIG_PATH = "warmlight.toml"
+
 func main() {
+	var rawConfigPath string
+	flag.StringVar(&rawConfigPath, "c", DEFAULT_CONFIG_PATH, fmt.Sprintf("config file path, default value is '%s'", DEFAULT_CONFIG_PATH))
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
 
-	config, err := utils.LoadConfig(path.Join(cwd, "warmlight.toml"))
+	config, err := utils.LoadConfig(path.Join(cwd, rawConfigPath))
 	if err != nil {
 		panic(err)
 	}

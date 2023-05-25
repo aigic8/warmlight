@@ -258,6 +258,7 @@ func (h Handlers) reactNewUser(user *db.User, update *models.Update) (u.Reaction
 }
 
 func (h Handlers) reactStateEditingSource(user *db.User, update *models.Update) (u.Reaction, error) {
+	// FIXME use strings
 	if update.Message.Text == "cancel" {
 		if _, err := h.db.SetUserStateNormal(user.ID); err != nil {
 			return u.Reaction{}, err
