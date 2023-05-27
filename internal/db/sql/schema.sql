@@ -7,15 +7,23 @@ CREATE TABLE users (
   state_data JSON,
   active_source TEXT,
   active_source_expire TIMESTAMPTZ,
+	library_id BIGINT NOT NULL REFERENCES libraries (id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE libraries (
+	id BIGSERIAL PRIMARY KEY,
+	owner_id BIGINT NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TYPE source_kind AS ENUM ('unknown', 'book', 'article', 'person');
 CREATE TABLE sources (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
-  user_id BIGINT NOT NULL REFERENCES users (id),
+  library_id BIGINT NOT NULL REFERENCES libraries (id),
   kind source_kind NOT NULL DEFAULT 'unknown',
   data JSON,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -25,7 +33,7 @@ CREATE TABLE sources (
 CREATE TABLE quotes (
   id BIGSERIAL PRIMARY KEY,
   text TEXT NOT NULL,
-  user_id BIGINT NOT NULL REFERENCES users (id),
+  library_id BIGINT NOT NULL REFERENCES libraries (id),
   main_source TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -35,7 +43,7 @@ CREATE TABLE quotes (
 CREATE TABLE tags (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
-  user_id BIGINT NOT NULL REFERENCES users (id),
+  library_id BIGINT NOT NULL REFERENCES libraries (id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -133,7 +133,32 @@ func (db *DB) GetOrCreateUser(ID, ChatID int64, firstName string) (*User, bool, 
 	user, err := db.q.GetUser(ctx, ID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			user, err := db.q.CreateUser(ctx, base.CreateUserParams{ID: ID, ChatID: ChatID, FirstName: firstName})
+			c, err := db.pool.Acquire(context.Background())
+			if err != nil {
+				return nil, false, err
+			}
+			defer c.Release()
+
+			tx, err := c.BeginTx(context.Background(), pgx.TxOptions{})
+			if err != nil {
+				return nil, false, err
+			}
+
+			defer func() {
+				if err != nil {
+					tx.Rollback(context.Background())
+				} else {
+					tx.Commit(context.Background())
+				}
+			}()
+
+			q := db.q.WithTx(tx)
+			library, err := q.CreateLibrary(ctx, ID)
+			if err != nil {
+				return nil, false, err
+			}
+
+			user, err := q.CreateUser(ctx, base.CreateUserParams{ID: ID, ChatID: ChatID, FirstName: firstName, LibraryID: library.ID})
 			if err != nil {
 				return nil, false, err
 			}
@@ -145,7 +170,7 @@ func (db *DB) GetOrCreateUser(ID, ChatID int64, firstName string) (*User, bool, 
 	return &user, false, nil
 }
 
-func (db *DB) CreateQuoteWithData(userID int64, text, mainSource string, tagNames []string, sourceNames []string) (*CreateQuoteResult, error) {
+func (db *DB) CreateQuoteWithData(libraryID int64, text, mainSource string, tagNames []string, sourceNames []string) (*CreateQuoteResult, error) {
 	c, err := db.pool.Acquire(context.Background())
 	if err != nil {
 		return nil, err
@@ -173,7 +198,7 @@ func (db *DB) CreateQuoteWithData(userID int64, text, mainSource string, tagName
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
-	quote, err := q.CreateQuote(ctx, base.CreateQuoteParams{UserID: userID, Text: text, MainSource: mainSourceSql})
+	quote, err := q.CreateQuote(ctx, base.CreateQuoteParams{LibraryID: libraryID, Text: text, MainSource: mainSourceSql})
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +206,7 @@ func (db *DB) CreateQuoteWithData(userID int64, text, mainSource string, tagName
 	for _, name := range tagNames {
 		ctx, cancel := context.WithTimeout(context.Background(), db.Timeout*2)
 		defer cancel()
-		tagID, err := q.GetOrCreateTag(ctx, base.GetOrCreateTagParams{UserID: userID, Name: name})
+		tagID, err := q.GetOrCreateTag(ctx, base.GetOrCreateTagParams{LibraryID: libraryID, Name: name})
 		if err != nil {
 			return nil, err
 		}
@@ -194,7 +219,7 @@ func (db *DB) CreateQuoteWithData(userID int64, text, mainSource string, tagName
 	for _, name := range sourceNames {
 		ctx, cancel := context.WithTimeout(context.Background(), db.Timeout*2)
 		defer cancel()
-		sourceID, err := q.GetOrCreateSource(ctx, base.GetOrCreateSourceParams{UserID: userID, Name: name})
+		sourceID, err := q.GetOrCreateSource(ctx, base.GetOrCreateSourceParams{LibraryID: libraryID, Name: name})
 		if err != nil {
 			return nil, err
 		}
@@ -207,10 +232,10 @@ func (db *DB) CreateQuoteWithData(userID int64, text, mainSource string, tagName
 	return &quote, nil
 }
 
-func (db *DB) CreateSource(userID int64, name string) (*Source, error) {
+func (db *DB) CreateSource(libraryID int64, name string) (*Source, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
-	source, err := db.q.CreateSource(ctx, base.CreateSourceParams{UserID: userID, Name: name})
+	source, err := db.q.CreateSource(ctx, base.CreateSourceParams{LibraryID: libraryID, Name: name})
 	if err != nil {
 		return nil, err
 	}
@@ -218,10 +243,10 @@ func (db *DB) CreateSource(userID int64, name string) (*Source, error) {
 	return &source, nil
 }
 
-func (db *DB) GetSource(userID int64, name string) (*Source, error) {
+func (db *DB) GetSource(libraryID int64, name string) (*Source, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
-	source, err := db.q.GetSource(ctx, base.GetSourceParams{UserID: userID, Name: name})
+	source, err := db.q.GetSource(ctx, base.GetSourceParams{LibraryID: libraryID, Name: name})
 	if err != nil {
 		return nil, err
 	}
@@ -229,11 +254,11 @@ func (db *DB) GetSource(userID int64, name string) (*Source, error) {
 	return &source, nil
 }
 
-func (db *DB) GetSourceByID(userID int64, sourceID int64) (*Source, error) {
+func (db *DB) GetSourceByID(libraryID int64, sourceID int64) (*Source, error) {
 	// FIXME test GetSourceByID
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
-	source, err := db.q.GetSourceByID(ctx, base.GetSourceByIDParams{UserID: userID, ID: sourceID})
+	source, err := db.q.GetSourceByID(ctx, base.GetSourceByIDParams{LibraryID: libraryID, ID: sourceID})
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +266,7 @@ func (db *DB) GetSourceByID(userID int64, sourceID int64) (*Source, error) {
 	return &source, nil
 }
 
-func (db *DB) SetSourceBook(userID int64, sourceID int64, sourceData *SourceBookData) (*Source, error) {
+func (db *DB) SetSourceBook(libraryID int64, sourceID int64, sourceData *SourceBookData) (*Source, error) {
 	var err error
 	data := pgtype.JSON{Status: pgtype.Null}
 	if sourceData != nil {
@@ -254,7 +279,7 @@ func (db *DB) SetSourceBook(userID int64, sourceID int64, sourceData *SourceBook
 
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
-	source, err := db.q.SetSourceData(ctx, base.SetSourceDataParams{UserID: userID, ID: sourceID, Kind: base.SourceKindBook, Data: data})
+	source, err := db.q.SetSourceData(ctx, base.SetSourceDataParams{LibraryID: libraryID, ID: sourceID, Kind: base.SourceKindBook, Data: data})
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +287,7 @@ func (db *DB) SetSourceBook(userID int64, sourceID int64, sourceData *SourceBook
 	return &source, nil
 }
 
-func (db *DB) SetSourceArticle(userID int64, sourceID int64, sourceData *SourceArticleData) (*Source, error) {
+func (db *DB) SetSourceArticle(libraryID int64, sourceID int64, sourceData *SourceArticleData) (*Source, error) {
 	var err error
 	data := pgtype.JSON{Status: pgtype.Null}
 	if sourceData != nil {
@@ -275,7 +300,7 @@ func (db *DB) SetSourceArticle(userID int64, sourceID int64, sourceData *SourceA
 
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
-	source, err := db.q.SetSourceData(ctx, base.SetSourceDataParams{UserID: userID, ID: sourceID, Kind: base.SourceKindArticle, Data: data})
+	source, err := db.q.SetSourceData(ctx, base.SetSourceDataParams{LibraryID: libraryID, ID: sourceID, Kind: base.SourceKindArticle, Data: data})
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +308,7 @@ func (db *DB) SetSourceArticle(userID int64, sourceID int64, sourceData *SourceA
 	return &source, nil
 }
 
-func (db *DB) SetSourcePerson(userID int64, sourceID int64, sourceData *SourcePersonData) (*Source, error) {
+func (db *DB) SetSourcePerson(libraryID int64, sourceID int64, sourceData *SourcePersonData) (*Source, error) {
 	var err error
 	data := pgtype.JSON{Status: pgtype.Null}
 	if sourceData != nil {
@@ -296,7 +321,7 @@ func (db *DB) SetSourcePerson(userID int64, sourceID int64, sourceData *SourcePe
 
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
-	source, err := db.q.SetSourceData(ctx, base.SetSourceDataParams{UserID: userID, ID: sourceID, Kind: base.SourceKindPerson, Data: data})
+	source, err := db.q.SetSourceData(ctx, base.SetSourceDataParams{LibraryID: libraryID, ID: sourceID, Kind: base.SourceKindPerson, Data: data})
 	if err != nil {
 		return nil, err
 	}
@@ -304,11 +329,11 @@ func (db *DB) SetSourcePerson(userID int64, sourceID int64, sourceData *SourcePe
 	return &source, nil
 }
 
-func (db *DB) SetSourceUnknown(userID int64, sourceID int64) (*Source, error) {
+func (db *DB) SetSourceUnknown(libraryID int64, sourceID int64) (*Source, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
 	data := pgtype.JSON{Status: pgtype.Null}
-	source, err := db.q.SetSourceData(ctx, base.SetSourceDataParams{UserID: userID, ID: sourceID, Kind: base.SourceKindUnknown, Data: data})
+	source, err := db.q.SetSourceData(ctx, base.SetSourceDataParams{LibraryID: libraryID, ID: sourceID, Kind: base.SourceKindUnknown, Data: data})
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +342,7 @@ func (db *DB) SetSourceUnknown(userID int64, sourceID int64) (*Source, error) {
 
 }
 
-func (db *DB) UpdateSource(userID int64, source *Source) (*Source, error) {
+func (db *DB) UpdateSource(libraryID int64, source *Source) (*Source, error) {
 	if source == nil {
 		return nil, errors.New("source is nil")
 	}
@@ -325,7 +350,7 @@ func (db *DB) UpdateSource(userID int64, source *Source) (*Source, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
 
-	resSource, err := db.q.UpdateSource(ctx, base.UpdateSourceParams{Name: source.Name, Kind: source.Kind, Data: source.Data, ID: source.ID, UserID: userID})
+	resSource, err := db.q.UpdateSource(ctx, base.UpdateSourceParams{Name: source.Name, Kind: source.Kind, Data: source.Data, ID: source.ID, LibraryID: libraryID})
 	if err != nil {
 		return nil, err
 	}
@@ -334,7 +359,7 @@ func (db *DB) UpdateSource(userID int64, source *Source) (*Source, error) {
 }
 
 type QuerySourcesParams struct {
-	UserID     int64
+	LibraryID  int64
 	NameQuery  string
 	SourceKind string
 	Limit      int32
@@ -348,37 +373,37 @@ func (db *DB) QuerySources(p QuerySourcesParams) ([]Source, error) {
 	if p.Before {
 		if p.SourceKind == "" {
 			return db.q.QuerySourcesBefore(ctx, base.QuerySourcesBeforeParams{
-				UserID:  p.UserID,
-				ID:      p.BaseID,
-				Column3: sql.NullString{Valid: true, String: p.NameQuery},
-				Limit:   p.Limit,
+				LibraryID: p.LibraryID,
+				ID:        p.BaseID,
+				Column3:   sql.NullString{Valid: true, String: p.NameQuery},
+				Limit:     p.Limit,
 			})
 		} else {
 			return db.q.QuerySourcesBeforeWithKind(ctx, base.QuerySourcesBeforeWithKindParams{
-				UserID:  p.UserID,
-				ID:      p.BaseID,
-				Kind:    base.SourceKind(p.SourceKind),
-				Column4: sql.NullString{Valid: true, String: p.NameQuery},
-				Limit:   p.Limit,
+				LibraryID: p.LibraryID,
+				ID:        p.BaseID,
+				Kind:      base.SourceKind(p.SourceKind),
+				Column4:   sql.NullString{Valid: true, String: p.NameQuery},
+				Limit:     p.Limit,
 			})
 		}
 	}
 
 	if p.SourceKind == "" {
 		return db.q.QuerySourcesAfter(ctx, base.QuerySourcesAfterParams{
-			UserID:  p.UserID,
-			ID:      p.BaseID,
-			Column3: sql.NullString{Valid: true, String: p.NameQuery},
-			Limit:   p.Limit,
+			LibraryID: p.LibraryID,
+			ID:        p.BaseID,
+			Column3:   sql.NullString{Valid: true, String: p.NameQuery},
+			Limit:     p.Limit,
 		})
 	}
 
 	return db.q.QuerySourcesAfterWithKind(ctx, base.QuerySourcesAfterWithKindParams{
-		UserID:  p.UserID,
-		ID:      p.BaseID,
-		Kind:    base.SourceKind(p.SourceKind),
-		Column4: sql.NullString{Valid: true, String: p.NameQuery},
-		Limit:   p.Limit,
+		LibraryID: p.LibraryID,
+		ID:        p.BaseID,
+		Kind:      base.SourceKind(p.SourceKind),
+		Column4:   sql.NullString{Valid: true, String: p.NameQuery},
+		Limit:     p.Limit,
 	})
 }
 
@@ -469,11 +494,11 @@ func (db *DB) GetOrCreateOutput(userID int64, chatID int64, chatTitle string) (*
 	return &output, false, nil
 }
 
-func (db *DB) SearchQuotes(userID int64, query string, limit int32) ([]QuoteSearchResult, error) {
+func (db *DB) SearchQuotes(libraryID int64, query string, limit int32) ([]QuoteSearchResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
 
-	return db.q.SearchQuotes(ctx, base.SearchQuotesParams{UserID: userID, ToTsquery: query, Limit: limit})
+	return db.q.SearchQuotes(ctx, base.SearchQuotesParams{LibraryID: libraryID, ToTsquery: query, Limit: limit})
 }
 
 func (db *DB) DeleteOutput(userID int64, outputChatID int64) error {

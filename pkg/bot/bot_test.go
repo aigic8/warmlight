@@ -80,13 +80,13 @@ func TestReactStateEditingSource(t *testing.T) {
 	var userID int64 = 1234
 	var chatID int64 = 1
 	firstName := "aigic8"
-	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}
 
 	sourceName := "Practical Statistics for Data Scientists"
-	source, err := appDB.CreateSource(userID, sourceName)
+	source, err := appDB.CreateSource(user.LibraryID, sourceName)
 	if err != nil {
 		panic(err)
 	}
@@ -102,7 +102,7 @@ func TestReactStateEditingSource(t *testing.T) {
 	updateMessage := fmt.Sprintf("%s: %s\n%s: %s\n%s: %s", SOURCE_KIND, "book", SOURCE_BOOK_AUTHOR, sourceAuthor, SOURCE_BOOK_INFO_URL, sourceInfoURL)
 	update := makeTestMessageUpdate(userID, firstName, updateMessage)
 
-	user, err := appDB.GetUser(userID)
+	user, err = appDB.GetUser(userID)
 	if err != nil {
 		panic(err)
 	}
@@ -179,16 +179,16 @@ func TestReactDeactivateSource(t *testing.T) {
 	var chatID int64 = 1
 	firstName := "aigic8"
 	sourceName := "The social animal"
-	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}
 
-	if _, err := appDB.CreateSource(userID, sourceName); err != nil {
+	if _, err := appDB.CreateSource(user.LibraryID, sourceName); err != nil {
 		panic(err)
 	}
 
-	user, err := appDB.SetActiveSource(userID, sourceName, time.Now().Add(100*time.Minute))
+	user, err = appDB.SetActiveSource(userID, sourceName, time.Now().Add(100*time.Minute))
 	if err != nil {
 		panic(err)
 	}
@@ -239,14 +239,14 @@ func TestReactGetSources(t *testing.T) {
 	availableSources := []string{s1Name, s2Name, s3Name}
 	sourcesMap := map[string]db.Source{}
 	for _, sourceName := range availableSources {
-		source, err := appDB.CreateSource(userID, sourceName)
+		source, err := appDB.CreateSource(user.LibraryID, sourceName)
 		if err != nil {
 			panic(err)
 		}
 		sourcesMap[sourceName] = *source
 	}
 
-	s1New, err := appDB.SetSourceBook(userID, sourcesMap[s1Name].ID, nil)
+	s1New, err := appDB.SetSourceBook(user.LibraryID, sourcesMap[s1Name].ID, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -289,7 +289,7 @@ func TestReactSetActiveSource(t *testing.T) {
 		panic(err)
 	}
 
-	if _, err := appDB.CreateSource(userID, "The social animal"); err != nil {
+	if _, err := appDB.CreateSource(user.LibraryID, "The social animal"); err != nil {
 		panic(err)
 	}
 

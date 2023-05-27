@@ -214,7 +214,7 @@ func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction
 		}
 	}
 
-	_, err = h.db.CreateQuoteWithData(update.Message.From.ID, q.Text, q.MainSource, q.Tags, q.Sources)
+	_, err = h.db.CreateQuoteWithData(user.LibraryID, q.Text, q.MainSource, q.Tags, q.Sources)
 	if err != nil {
 		return u.Reaction{}, err
 	}
@@ -276,7 +276,7 @@ func (h Handlers) reactStateEditingSource(user *db.User, update *models.Update) 
 		}}, nil
 	}
 
-	currentSource, err := h.db.GetSourceByID(user.ID, stateData.SourceID)
+	currentSource, err := h.db.GetSourceByID(user.LibraryID, stateData.SourceID)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
@@ -345,7 +345,7 @@ func (h Handlers) reactStateEditingSource(user *db.User, update *models.Update) 
 		newSource.Name = sourceName
 	}
 
-	resSource, err := h.db.UpdateSource(user.ID, &newSource)
+	resSource, err := h.db.UpdateSource(user.LibraryID, &newSource)
 	if err != nil {
 		return u.Reaction{}, nil
 	}
@@ -387,7 +387,7 @@ func (h Handlers) reactGetSources(user *db.User, update *models.Update) (u.React
 
 	// we are fetching one more elements to check if there is any more pages or not
 	sources, err := h.db.QuerySources(db.QuerySourcesParams{
-		UserID:     user.ID,
+		LibraryID:  user.LibraryID,
 		NameQuery:  filter.Text,
 		SourceKind: filter.SourceKind,
 		Limit:      SOURCES_PAGE_LIMIT + 1,
@@ -454,7 +454,7 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 	}
 	activeSourceExpire := time.Now().Add(time.Minute * time.Duration(activeSourceTimeoutInt))
 
-	_, err = h.db.GetSource(user.ID, args[0])
+	_, err = h.db.GetSource(user.LibraryID, args[0])
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return u.Reaction{
@@ -581,7 +581,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 			if err != nil {
 				return u.Reaction{}, err
 			}
-			source, err := h.db.GetSourceByID(user.ID, sourceID)
+			source, err := h.db.GetSourceByID(user.LibraryID, sourceID)
 			if err != nil {
 				if errors.Is(err, db.ErrNotFound) {
 					return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(user.ChatID, strSourceNoLongerExists)}}, nil
@@ -604,7 +604,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 			if err != nil {
 				return u.Reaction{}, err
 			}
-			source, err := h.db.GetSourceByID(user.ID, sourceID)
+			source, err := h.db.GetSourceByID(user.LibraryID, sourceID)
 			if err != nil {
 				if errors.Is(err, db.ErrNotFound) {
 					return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(user.ChatID, strSourceNoLongerExists)}}, nil
@@ -675,7 +675,7 @@ func (h Handlers) reactInlineQuery(update *models.Update) ([]models.InlineQueryR
 
 	query := strings.Join(strings.Fields(update.InlineQuery.Query), " & ")
 	// https://core.telegram.org/bots/api#answerinlinequery no more than 50 results per query is allowed
-	quotes, err := h.db.SearchQuotes(user.ID, query, 50)
+	quotes, err := h.db.SearchQuotes(user.LibraryID, query, 50)
 	if err != nil {
 		return nil, err
 	}

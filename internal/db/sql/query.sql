@@ -4,10 +4,7 @@
 SELECT * FROM users WHERE id = $1;
 
 -- name: CreateUser :one
-INSERT INTO users (id, chat_id, first_name) VALUES ($1, $2, $3) RETURNING *;
-
--- name: CreateSource :one
-INSERT INTO sources (user_id, name) VALUES ($1, $2) RETURNING *;
+INSERT INTO users (id, chat_id, first_name, library_id) VALUES ($1, $2, $3, $4) RETURNING *;
 
 -- name: SetUserState :one
 UPDATE users SET
@@ -33,45 +30,55 @@ UPDATE users SET
   active_source_expire = NULL
 WHERE id = $1 RETURNING *;
 
+--------- LIBRARIES ----------
+
+-- name: GetLibrary :one
+SELECT * FROM libraries WHERE id = $1;
+
+-- name: CreateLibrary :one
+INSERT INTO libraries (owner_id) VALUES ($1) RETURNING *;
+
 ---------- QUOTES ------------
 
 -- name: CreateQuote :one
-INSERT INTO quotes (user_id, text, main_source) VALUES ($1, $2, $3) RETURNING id, text, user_id, main_source, created_at, updated_at;
+INSERT INTO quotes (library_id, text, main_source) VALUES ($1, $2, $3) RETURNING id, text, library_id, main_source, created_at, updated_at;
 
 -- name: SearchQuotes :many
-SELECT id, text, main_source, user_id, created_at, updated_at FROM quotes WHERE user_id = $1 AND text_tokens @@ TO_TSQUERY('english', $2) LIMIT $3;
+SELECT id, text, main_source, library_id, created_at, updated_at FROM quotes WHERE library_id = $1 AND text_tokens @@ TO_TSQUERY('english', $2) LIMIT $3;
 
 ---------- SOURCES -----------
 
 -- name: GetSource :one
-SELECT * FROM sources WHERE user_id = $1 AND name = $2;
+SELECT * FROM sources WHERE library_id = $1 AND name = $2;
 
+-- name: CreateSource :one
+INSERT INTO sources (library_id, name) VALUES ($1, $2) RETURNING *;
 
 -- name: GetSourceByID :one
-SELECT * FROM sources WHERE user_id = $1 AND id = $2;
+SELECT * FROM sources WHERE library_id = $1 AND id = $2;
 
 -- name: GetOrCreateSource :one
 WITH created_id AS (
-  INSERT INTO sources (user_id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id
-) SELECT id FROM created_id UNION ALL SELECT id FROM sources WHERE user_id = $1 AND name = $2 LIMIT 1;
+  INSERT INTO sources (library_id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id
+) SELECT id FROM created_id UNION ALL SELECT id FROM sources WHERE library_id = $1 AND name = $2 LIMIT 1;
 
 -- name: QuerySourcesAfter :many
-SELECT * FROM sources WHERE user_id = $1 AND id > $2 AND name LIKE '%' || $3 || '%' ORDER BY id ASC LIMIT $4;
+SELECT * FROM sources WHERE library_id = $1 AND id > $2 AND name LIKE '%' || $3 || '%' ORDER BY id ASC LIMIT $4;
 
 -- name: QuerySourcesAfterWithKind :many
-SELECT * FROM sources WHERE user_id = $1 AND id > $2 AND kind = $3 AND name LIKE '%' || $4 || '%' ORDER BY id ASC LIMIT $5;
+SELECT * FROM sources WHERE library_id = $1 AND id > $2 AND kind = $3 AND name LIKE '%' || $4 || '%' ORDER BY id ASC LIMIT $5;
 
 -- name: QuerySourcesBefore :many
-SELECT * FROM sources WHERE user_id = $1 AND id < $2 AND name LIKE '%' || $3 || '%' ORDER BY id DESC LIMIT $4;
+SELECT * FROM sources WHERE library_id = $1 AND id < $2 AND name LIKE '%' || $3 || '%' ORDER BY id DESC LIMIT $4;
 
 -- name: QuerySourcesBeforeWithKind :many
-SELECT * FROM sources WHERE user_id = $1 AND id < $2 AND kind = $3 AND name LIKE '%' || $4 || '%' ORDER BY id DESC LIMIT $5;
+SELECT * FROM sources WHERE library_id = $1 AND id < $2 AND kind = $3 AND name LIKE '%' || $4 || '%' ORDER BY id DESC LIMIT $5;
 
 -- name: SetSourceData :one
-UPDATE sources SET kind = $1, data = $2  WHERE user_id = $3 AND id = $4 RETURNING *;
+UPDATE sources SET kind = $1, data = $2  WHERE library_id = $3 AND id = $4 RETURNING *;
 
 -- name: UpdateSource :one
-UPDATE sources SET name = $1, kind = $2, data = $3, updated_at = NOW() WHERE user_id = $4 AND id = $5 RETURNING *;
+UPDATE sources SET name = $1, kind = $2, data = $3, updated_at = NOW() WHERE library_id = $4 AND id = $5 RETURNING *;
 
 ---------- OUTPUTS -----------
 
@@ -101,8 +108,8 @@ DELETE FROM outputs WHERE user_id = $1 AND chat_id = $2;
 
 -- name: GetOrCreateTag :one
 WITH created_id AS (
-  INSERT INTO tags (user_id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id
-) SELECT id FROM created_id UNION ALL SELECT id FROM tags WHERE user_id = $1 AND name = $2 LIMIT 1;
+  INSERT INTO tags (library_id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id
+) SELECT id FROM created_id UNION ALL SELECT id FROM tags WHERE library_id = $1 AND name = $2 LIMIT 1;
 
 -------- ASSOCIATIONS ---------
 

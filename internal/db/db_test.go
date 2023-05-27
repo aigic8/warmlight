@@ -43,6 +43,7 @@ func TestDBGetOrCreateUser(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, isCreated)
 	assert.Equal(t, ID, user.ID)
+	assert.NotEqual(t, 0, user.LibraryID)
 	assert.Equal(t, UserStateNormal, user.State)
 	assert.Equal(t, user.FirstName, firstName)
 
@@ -125,10 +126,10 @@ func TestDBCreateSource(t *testing.T) {
 		panic(err)
 	}
 
-	source, err := appDB.CreateSource(user.ID, sourceName)
+	source, err := appDB.CreateSource(user.LibraryID, sourceName)
 	assert.Nil(t, err)
 	assert.Equal(t, sourceName, source.Name)
-	assert.Equal(t, userID, source.UserID)
+	assert.Equal(t, user.LibraryID, source.LibraryID)
 }
 
 func TestDBCreateSourceAlreadyExist(t *testing.T) {
@@ -144,12 +145,12 @@ func TestDBCreateSourceAlreadyExist(t *testing.T) {
 		panic(err)
 	}
 
-	_, err = appDB.CreateSource(user.ID, sourceName)
+	_, err = appDB.CreateSource(user.LibraryID, sourceName)
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = appDB.CreateSource(user.ID, sourceName)
+	_, err = appDB.CreateSource(user.LibraryID, sourceName)
 	assert.NotNil(t, err)
 }
 
@@ -166,12 +167,12 @@ func TestDBGetSource(t *testing.T) {
 		panic(err)
 	}
 
-	_, err = appDB.CreateSource(user.ID, sourceName)
+	_, err = appDB.CreateSource(user.LibraryID, sourceName)
 	if err != nil {
 		panic(err)
 	}
 
-	source, err := appDB.GetSource(user.ID, sourceName)
+	source, err := appDB.GetSource(user.LibraryID, sourceName)
 	assert.Nil(t, err)
 	assert.Equal(t, sourceName, source.Name)
 }
@@ -189,7 +190,7 @@ func TestDBSetSourceBook(t *testing.T) {
 	var chatID int64 = 1
 	firstName := "aigic8"
 
-	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}
@@ -199,7 +200,7 @@ func TestDBSetSourceBook(t *testing.T) {
 	availableSources := []string{socialAnimalName, tyrannyOfMeritName}
 	sourceIDs := map[string]int64{}
 	for _, sourceName := range availableSources {
-		source, err := appDB.CreateSource(userID, sourceName)
+		source, err := appDB.CreateSource(user.LibraryID, sourceName)
 		if err != nil {
 			panic(err)
 		}
@@ -214,10 +215,10 @@ func TestDBSetSourceBook(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			_, err = appDB.SetSourceBook(userID, tc.SourceID, tc.SourceData)
+			_, err = appDB.SetSourceBook(user.LibraryID, tc.SourceID, tc.SourceData)
 			assert.Nil(t, err)
 
-			source, err := appDB.GetSource(userID, tc.SourceName)
+			source, err := appDB.GetSource(user.LibraryID, tc.SourceName)
 			if err != nil {
 				panic(err)
 			}
@@ -253,7 +254,7 @@ func TestDBSetSourceUnknown(t *testing.T) {
 	var chatID int64 = 1
 	firstName := "aigic8"
 
-	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}
@@ -262,14 +263,14 @@ func TestDBSetSourceUnknown(t *testing.T) {
 	availableSources := []string{socialAnimalName, "The tyranny of merit"}
 	sourceIDs := map[string]int64{}
 	for _, sourceName := range availableSources {
-		source, err := appDB.CreateSource(userID, sourceName)
+		source, err := appDB.CreateSource(user.LibraryID, sourceName)
 		if err != nil {
 			panic(err)
 		}
 
 		// since default source kind is "unknown" we need to change it
 		// to book before testing to make sure SetSourceUnknown works
-		_, err = appDB.SetSourceBook(userID, source.ID, nil)
+		_, err = appDB.SetSourceBook(user.LibraryID, source.ID, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -283,10 +284,10 @@ func TestDBSetSourceUnknown(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			_, err = appDB.SetSourceUnknown(userID, tc.SourceID)
+			_, err = appDB.SetSourceUnknown(user.LibraryID, tc.SourceID)
 			assert.Nil(t, err)
 
-			source, err := appDB.GetSource(userID, tc.SourceName)
+			source, err := appDB.GetSource(user.LibraryID, tc.SourceName)
 			if err != nil {
 				panic(err)
 			}
@@ -303,13 +304,13 @@ func TestDBUpdateSource(t *testing.T) {
 	var userID int64 = 10
 	var chatID int64 = 1
 	firstName := "aigic8"
-	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}
 
 	sourceName := "Practical Statistics for Data Scientists"
-	source, err := appDB.CreateSource(userID, sourceName)
+	source, err := appDB.CreateSource(user.LibraryID, sourceName)
 	if err != nil {
 		panic(err)
 	}
@@ -330,7 +331,7 @@ func TestDBUpdateSource(t *testing.T) {
 	source.Data.Bytes = sourceDataBytes
 	source.Data.Status = pgtype.Present
 
-	newSource, err := appDB.UpdateSource(userID, source)
+	newSource, err := appDB.UpdateSource(user.LibraryID, source)
 	assert.Nil(t, err)
 	assert.Equal(t, sourceKind, newSource.Kind)
 	assert.Equal(t, pgtype.Present, newSource.Data.Status)
@@ -360,7 +361,7 @@ func TestDBQuerySources(t *testing.T) {
 	var chatID int64 = 1
 	firstName := "aigic8"
 
-	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}
@@ -369,7 +370,7 @@ func TestDBQuerySources(t *testing.T) {
 	availableSources := []string{articleSourceName, "aaaaa", "aaaaaaa", "aaaaaaaaaa"}
 	sourceIDs := map[string]int64{}
 	for _, sourceName := range availableSources {
-		source, err := appDB.CreateSource(userID, sourceName)
+		source, err := appDB.CreateSource(user.LibraryID, sourceName)
 		if err != nil {
 			panic(err)
 		}
@@ -377,7 +378,7 @@ func TestDBQuerySources(t *testing.T) {
 		sourceIDs[sourceName] = source.ID
 	}
 
-	_, err = appDB.SetSourceArticle(userID, sourceIDs[articleSourceName], nil)
+	_, err = appDB.SetSourceArticle(user.LibraryID, sourceIDs[articleSourceName], nil)
 	if err != nil {
 		panic(err)
 	}
@@ -393,7 +394,7 @@ func TestDBQuerySources(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			sources, err := appDB.QuerySources(QuerySourcesParams{UserID: userID, NameQuery: tc.Query, SourceKind: tc.SourceKind, Limit: tc.Limit, BaseID: tc.BaseID, Before: tc.Before})
+			sources, err := appDB.QuerySources(QuerySourcesParams{LibraryID: user.LibraryID, NameQuery: tc.Query, SourceKind: tc.SourceKind, Limit: tc.Limit, BaseID: tc.BaseID, Before: tc.Before})
 			assert.Nil(t, err)
 
 			sourceNames := []string{}
@@ -418,7 +419,7 @@ func TestDBGetSourceErrDoesNotFound(t *testing.T) {
 		panic(err)
 	}
 
-	_, err = appDB.GetSource(user.ID, sourceName)
+	_, err = appDB.GetSource(user.LibraryID, sourceName)
 	assert.NotNil(t, err)
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -437,7 +438,7 @@ func TestDBSetActiveSourceNormal(t *testing.T) {
 		panic(err)
 	}
 
-	_, err = appDB.CreateSource(user.ID, sourceName)
+	_, err = appDB.CreateSource(user.LibraryID, sourceName)
 	if err != nil {
 		panic(err)
 	}
@@ -544,12 +545,12 @@ func TestDBCreateQuoteWithData(t *testing.T) {
 	appDB := mustInitDB(TEST_DB_URL)
 	defer appDB.Close()
 
-	_, _, err := appDB.GetOrCreateUser(userID, chatID, "aigic8")
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, "aigic8")
 	if err != nil {
 		panic(err)
 	}
 
-	q, err := appDB.CreateQuoteWithData(userID, text, mainSource, tags, sources)
+	q, err := appDB.CreateQuoteWithData(user.LibraryID, text, mainSource, tags, sources)
 
 	assert.Nil(t, err)
 	assert.Equal(t, q.Text, text)
@@ -761,7 +762,7 @@ func TestDBSearchQuotes(t *testing.T) {
 	var chatID int64 = 1
 	firstName := "aigic8"
 
-	_, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
 	if err != nil {
 		panic(err)
 	}
@@ -777,7 +778,7 @@ func TestDBSearchQuotes(t *testing.T) {
 	}
 
 	for _, quote := range quotes {
-		_, err := appDB.CreateQuoteWithData(userID, quote.Text, quote.Source, []string{}, []string{quote.Source})
+		_, err := appDB.CreateQuoteWithData(user.LibraryID, quote.Text, quote.Source, []string{}, []string{quote.Source})
 		if err != nil {
 			panic(err)
 		}
@@ -791,7 +792,7 @@ func TestDBSearchQuotes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			result, err := appDB.SearchQuotes(userID, tc.Query, 10)
+			result, err := appDB.SearchQuotes(user.LibraryID, tc.Query, 10)
 			assert.Nil(t, err)
 
 			resultTexts := []string{}

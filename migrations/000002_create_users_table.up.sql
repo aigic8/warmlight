@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   state_data JSON,
   active_source TEXT,
   active_source_expire TIMESTAMPTZ,
+	library_id BIGINT NOT NULL REFERENCES libraries (id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
