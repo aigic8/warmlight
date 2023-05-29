@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/aigic8/warmlight/internal/db/base"
+	"github.com/google/uuid"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -22,6 +23,7 @@ type Source = base.Source
 type SourceKind = base.SourceKind
 type QuoteSearchResult = base.SearchQuotesRow
 type CreateQuoteResult = base.CreateQuoteRow
+type Library = base.Library
 
 const SourceKindUnknown = base.SourceKindUnknown
 const SourceKindBook = base.SourceKindBook
@@ -168,6 +170,47 @@ func (db *DB) GetOrCreateUser(ID, ChatID int64, firstName string) (*User, bool, 
 	}
 
 	return &user, false, nil
+}
+
+func (db *DB) GetLibrary(libraryID int64) (*Library, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+
+	library, err := db.q.GetLibrary(ctx, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	return &library, nil
+}
+
+func (db *DB) SetLibraryToken(libraryID int64, UUID uuid.UUID, expiresOn time.Time) (*Library, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+
+	library, err := db.q.SetLibraryToken(ctx, base.SetLibraryTokenParams{
+		ID:             libraryID,
+		Token:          uuid.NullUUID{UUID: UUID, Valid: true},
+		TokenExpiresOn: sql.NullTime{Time: expiresOn, Valid: true},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &library, nil
+}
+
+func (db *DB) DeleteLibraryToken(libraryID int64) (*Library, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+
+	library, err := db.q.SetLibraryToken(ctx, base.SetLibraryTokenParams{
+		ID:             libraryID,
+		Token:          uuid.NullUUID{},
+		TokenExpiresOn: sql.NullTime{},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &library, nil
 }
 
 func (db *DB) CreateQuoteWithData(libraryID int64, text, mainSource string, tagNames []string, sourceNames []string) (*CreateQuoteResult, error) {

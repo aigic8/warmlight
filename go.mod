@@ -6,6 +6,8 @@ require (
 	github.com/go-co-op/gocron v1.19.0
 	github.com/go-playground/validator/v10 v10.12.0
 	github.com/go-telegram/bot v0.7.1
+	github.com/google/uuid v1.3.0
+	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/jackc/pgconn v1.14.0
 	github.com/jackc/pgtype v1.14.0
 	github.com/jackc/pgx/v4 v4.18.1

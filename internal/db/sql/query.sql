@@ -38,6 +38,9 @@ SELECT * FROM libraries WHERE id = $1;
 -- name: CreateLibrary :one
 INSERT INTO libraries (owner_id) VALUES ($1) RETURNING *;
 
+-- name: SetLibraryToken :one
+UPDATE libraries SET token = $1, token_expires_on = $2 WHERE id = $3 RETURNING *;
+
 ---------- QUOTES ------------
 
 -- name: CreateQuote :one

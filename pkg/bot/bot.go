@@ -17,6 +17,8 @@ import (
 	u "github.com/aigic8/warmlight/pkg/bot/utils"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/google/uuid"
+	"github.com/hako/durafmt"
 	"github.com/jackc/pgtype"
 	"github.com/rs/zerolog"
 )
@@ -45,7 +47,12 @@ func RunBot(appDB *db.DB, token string, config *Config) error {
 		return err
 	}
 
-	h := Handlers{db: appDB, l: l, defaultActiveSourceTimeoutMins: config.DefaultActiveSourceTimeoutMins}
+	h := Handlers{
+		db:                             appDB,
+		l:                              l,
+		defaultActiveSourceTimeoutMins: config.DefaultActiveSourceTimeoutMins,
+		LibraryUUIDLifetime:            time.Duration(config.DefaultActiveSourceTimeoutMins) * time.Minute,
+	}
 	opts := []bot.Option{
 		bot.WithDefaultHandler(h.updateHandler),
 	}
@@ -86,6 +93,7 @@ type Handlers struct {
 	db                             *db.DB
 	l                              zerolog.Logger
 	defaultActiveSourceTimeoutMins int
+	LibraryUUIDLifetime            time.Duration
 }
 
 func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -163,6 +171,10 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 			r, err = h.reactSetActiveSource(user, update)
 		case strings.HasPrefix(update.Message.Text, COMMAND_DEACTIVATE_SOURCE):
 			r, err = h.reactDeactivateSource(user, update)
+		case strings.HasPrefix(update.Message.Text, COMMAND_GET_OUTPUTS):
+			r, err = h.reactGetOutputs(user, update)
+		case strings.HasPrefix(update.Message.Text, COMMAND_GET_LIBRARY_TOKEN):
+			r, err = h.reactGetLibraryToken(user, update)
 		case strings.HasPrefix(update.Message.Text, COMMAND_GET_SOURCES):
 			r, err = h.reactGetSources(user, update)
 		default:
@@ -496,6 +508,34 @@ func (h Handlers) reactGetOutputs(user *db.User, update *models.Update) (u.React
 
 	msg.ReplyMarkup = replyMarkup
 	return u.Reaction{Messages: []bot.SendMessageParams{msg}}, nil
+}
+
+func (h Handlers) reactGetLibraryToken(user *db.User, update *models.Update) (u.Reaction, error) {
+	library, err := h.db.GetLibrary(user.LibraryID)
+	if err != nil {
+		return u.Reaction{}, err
+	}
+
+	if library.OwnerID != user.ID {
+		return u.Reaction{
+			Messages: []bot.SendMessageParams{
+				u.TextReplyToMessage(update.Message, strOnlyTheOwnerCanAddNewUsers),
+			},
+		}, nil
+	}
+
+	UUID := uuid.New()
+	_, err = h.db.SetLibraryToken(user.LibraryID, UUID, time.Now().Add(h.LibraryUUIDLifetime))
+	if err != nil {
+		return u.Reaction{}, err
+	}
+
+	UUIDLifetimeStr := durafmt.Parse(h.LibraryUUIDLifetime).String()
+	return u.Reaction{
+		Messages: []bot.SendMessageParams{
+			u.TextReplyToMessage(update.Message, strYourLibraryToken(UUID.String(), UUIDLifetimeStr)),
+		},
+	}, nil
 }
 
 func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {

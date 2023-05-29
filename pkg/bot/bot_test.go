@@ -9,6 +9,7 @@ import (
 	"github.com/aigic8/warmlight/internal/db"
 	"github.com/aigic8/warmlight/pkg/bot/utils"
 	"github.com/go-telegram/bot/models"
+	"github.com/hako/durafmt"
 	"github.com/jackc/pgtype"
 	"github.com/stretchr/testify/assert"
 )
@@ -72,6 +73,32 @@ func TestReactDefault(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, len(r.Messages), 1)
 	assert.Equal(t, r.Messages[0].Text, strQuoteAdded)
+}
+
+func TestReactGetLibraryToken(t *testing.T) {
+	// TODO test the case when user is the owner of the library
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+	u, _, err := appDB.GetOrCreateUser(1, 1, "aigic8")
+	if err != nil {
+		panic(err)
+	}
+
+	UUIDLifetime := 30 * time.Minute
+	h := Handlers{db: appDB, LibraryUUIDLifetime: UUIDLifetime}
+
+	up1 := makeTestMessageUpdate(u.ID, u.FirstName, COMMAND_GET_LIBRARY_TOKEN)
+	r, err := h.reactGetLibraryToken(u, up1)
+	assert.Nil(t, err)
+
+	library, err := h.db.GetLibrary(u.LibraryID)
+	if err != nil {
+		panic(err)
+	}
+	assert.Equal(t, 1, len(r.Messages))
+	UUIDLifetimeStr := durafmt.Parse(UUIDLifetime).String()
+	expectedText1 := strYourLibraryToken(library.Token.UUID.String(), UUIDLifetimeStr)
+	assert.Equal(t, expectedText1, r.Messages[0].Text)
 }
 
 func TestReactStateEditingSource(t *testing.T) {

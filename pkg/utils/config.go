@@ -29,12 +29,14 @@ type (
 		DefaultActiveSourceTimeoutMins int    `toml:"defaultActiveSourceTimeoutMins" validate:"gte=0"`
 		DeactivatorIntervalMins        int    `toml:"deactivatorIntervalMins" validate:"gte=0"`
 		Port                           int    `toml:"port" validate:"gte=0"`
+		LibraryTokenExpireMins         int    `toml:"libraryTokenExpireMins" validate:"gte=0"`
 	}
 )
 
 const DEFAULT_ACTIVE_SOURCE_TIMEOUT = 60
 const DEFAULT_DEACTIVATOR_INTERVAL_MINS = 10
 const DEFAULT_DB_TIMEOUT_MS = 5000
+const DEFAULT_LIBRARY_TOKEN_EXPIRE_MINS = 30
 const DEFAULT_PORT = 443
 
 func LoadConfig(configPath string) (*Config, error) {
@@ -66,6 +68,10 @@ func LoadConfig(configPath string) (*Config, error) {
 
 	if config.Bot.DeactivatorIntervalMins == 0 {
 		config.Bot.DeactivatorIntervalMins = DEFAULT_DEACTIVATOR_INTERVAL_MINS
+	}
+
+	if config.Bot.LibraryTokenExpireMins == 0 {
+		config.Bot.LibraryTokenExpireMins = DEFAULT_LIBRARY_TOKEN_EXPIRE_MINS
 	}
 
 	if config.Db.TimeoutMs == 0 {

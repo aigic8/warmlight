@@ -18,6 +18,7 @@ const COMMAND_SET_ACTIVE_SOURCE = "/setactivesource"
 const COMMAND_GET_OUTPUTS = "/getoutputs"
 const COMMAND_DEACTIVATE_SOURCE = "/deactivatesource"
 const COMMAND_GET_SOURCES = "/getsources"
+const COMMAND_GET_LIBRARY_TOKEN = "/getlibtoken"
 
 const strInternalServerErr = "Internal server error happened!\nPlease retry"
 const strQuoteAdded = "Quote added"
@@ -179,4 +180,11 @@ func strQuote(q *utils.Quote) string {
 	}
 
 	return message
+}
+
+// LIBRARY
+const strOnlyTheOwnerCanAddNewUsers = "Only the owner of library can add new users!"
+
+func strYourLibraryToken(token string, lifetimeStr string) string {
+	return "Your library token is " + token + ". It will expire in " + lifetimeStr + "."
 }

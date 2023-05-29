@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aigic8/warmlight/internal/db/base"
+	"github.com/google/uuid"
 	"github.com/jackc/pgtype"
 	"github.com/stretchr/testify/assert"
 )
@@ -111,6 +112,78 @@ func TestDBSetUserStateEditingSource(t *testing.T) {
 		panic(err)
 	}
 	assert.Equal(t, sourceID, stateData.SourceID)
+}
+
+func TestDBGetLibrary(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+
+	var userID int64 = 1234
+	var chatID int64 = 1
+	firstName := "aigic8"
+
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	library, err := appDB.GetLibrary(user.LibraryID)
+	assert.Nil(t, err)
+	assert.NotNil(t, library)
+	assert.Equal(t, user.ID, library.OwnerID)
+	assert.False(t, library.Token.Valid)
+	assert.False(t, library.TokenExpiresOn.Valid)
+}
+
+func TestDBSetLibraryToken(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+
+	var userID int64 = 1234
+	var chatID int64 = 1
+	firstName := "aigic8"
+
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	UUID := uuid.New()
+	// postgres will nanoseconds when saved, so the times will not match
+	// we will set nanoseconds to zero to avoid mismatch
+	et := time.Now().Add(30 * time.Minute).Round(time.Second)
+	library, err := appDB.SetLibraryToken(user.LibraryID, UUID, et)
+	assert.Nil(t, err)
+	assert.True(t, library.Token.Valid)
+	assert.Equal(t, library.Token.UUID.String(), UUID.String())
+	assert.True(t, library.TokenExpiresOn.Valid)
+	assert.Equal(t, library.TokenExpiresOn.Time, et)
+}
+
+func TestDBDeleteLibraryToken(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+
+	var userID int64 = 1234
+	var chatID int64 = 1
+	firstName := "aigic8"
+
+	user, _, err := appDB.GetOrCreateUser(userID, chatID, firstName)
+	if err != nil {
+		panic(err)
+	}
+
+	UUID := uuid.New()
+	expiresOn := time.Now().Add(30 * time.Minute)
+	_, err = appDB.SetLibraryToken(user.LibraryID, UUID, expiresOn)
+	if err != nil {
+		panic(err)
+	}
+
+	library, err := appDB.DeleteLibraryToken(user.LibraryID)
+	assert.Nil(t, err)
+	assert.False(t, library.Token.Valid)
+	assert.False(t, library.TokenExpiresOn.Valid)
 }
 
 func TestDBCreateSource(t *testing.T) {
