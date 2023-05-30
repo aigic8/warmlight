@@ -1,4 +1,4 @@
-CREATE TYPE user_state AS ENUM ('normal', 'editingSource');
+CREATE TYPE user_state AS ENUM ('normal', 'editingSource', 'changingLibrary');
 CREATE TABLE users (
   id BIGINT PRIMARY KEY,
   chat_id BIGINT NOT NULL,

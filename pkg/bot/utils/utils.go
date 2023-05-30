@@ -49,6 +49,18 @@ func MakeToggleOutputStateCallback(output *db.Output) (string, error) {
 	return callbackData.Marshal(), nil
 }
 
+var mergeLibraryCallbackData = (&m.CallbackData{Action: m.CALLBACK_COMMAND_MERGE_LIBRARY}).Marshal()
+var deleteLibraryCallbackData = (&m.CallbackData{Action: m.CALLBACK_COMMAND_DELETE_LIBRARY}).Marshal()
+
+var MergeOrDeleteCurrentLibraryReplyMarkup = models.InlineKeyboardMarkup{
+	InlineKeyboard: [][]models.InlineKeyboardButton{
+		{
+			{Text: "merge", CallbackData: mergeLibraryCallbackData},
+			{Text: "delete", CallbackData: deleteLibraryCallbackData},
+		},
+	},
+}
+
 func OutputsReplyMarkup(outputs []db.Output) (models.InlineKeyboardMarkup, error) {
 	inlineKeyboard := [][]models.InlineKeyboardButton{}
 	for _, output := range outputs {

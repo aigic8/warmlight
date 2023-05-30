@@ -175,6 +175,8 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 			r, err = h.reactGetOutputs(user, update)
 		case strings.HasPrefix(update.Message.Text, COMMAND_GET_LIBRARY_TOKEN):
 			r, err = h.reactGetLibraryToken(user, update)
+		case strings.HasPrefix(update.Message.Text, COMMAND_SET_LIBRARY_TOKEN):
+			r, err = h.reactSetLibraryToken(user, update)
 		case strings.HasPrefix(update.Message.Text, COMMAND_GET_SOURCES):
 			r, err = h.reactGetSources(user, update)
 		default:
@@ -535,6 +537,57 @@ func (h Handlers) reactGetLibraryToken(user *db.User, update *models.Update) (u.
 		Messages: []bot.SendMessageParams{
 			u.TextReplyToMessage(update.Message, strYourLibraryToken(UUID.String(), UUIDLifetimeStr)),
 		},
+	}, nil
+}
+
+func (h Handlers) reactSetLibraryToken(user *db.User, update *models.Update) (u.Reaction, error) {
+	textParts := strings.Fields(update.Message.Text)
+	if len(textParts) != 2 {
+		return u.Reaction{
+			Messages: []bot.SendMessageParams{
+				u.TextReplyToMessage(update.Message, strMalformedLibraryToken),
+			},
+		}, nil
+	}
+
+	libraryUUID, err := uuid.Parse(textParts[1])
+	if err != nil {
+		return u.Reaction{
+			Messages: []bot.SendMessageParams{
+				u.TextReplyToMessage(update.Message, strMalformedLibraryToken),
+			},
+		}, nil
+	}
+
+	library, err := h.db.GetLibraryByUUID(libraryUUID)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return u.Reaction{
+				Messages: []bot.SendMessageParams{
+					u.TextReplyToMessage(update.Message, strNoLibraryExistsWithToken),
+				},
+			}, nil
+		}
+
+		return u.Reaction{}, err
+	}
+
+	if library.TokenExpiresOn.Time.Before(time.Now()) {
+		return u.Reaction{
+			Messages: []bot.SendMessageParams{
+				u.TextReplyToMessage(update.Message, strLibraryTokenExpired),
+			},
+		}, nil
+	}
+
+	if _, err = h.db.SetUserStateChangingLibrary(user.ID, library.ID); err != nil {
+		return u.Reaction{}, err
+	}
+
+	message := u.TextReplyToMessage(update.Message, strMergeOrDeleteCurrentLibraryData)
+	message.ReplyMarkup = u.MergeOrDeleteCurrentLibraryReplyMarkup
+	return u.Reaction{
+		Messages: []bot.SendMessageParams{message},
 	}, nil
 }
 

@@ -16,6 +16,9 @@ const CALLBACK_COMMAND_DEACTIVATE_OUTPUT = "de_op"
 const CALLBACK_COMMAND_SOURCE_INFO = "in_sr"
 const CALLBACK_COMMAND_SOURCE_EDIT = "ed_sr"
 
+const CALLBACK_COMMAND_MERGE_LIBRARY = "mr_lb"
+const CALLBACK_COMMAND_DELETE_LIBRARY = "dl_lb"
+
 var ErrMalformedCallbackString = errors.New("malformed callback string")
 
 var ErrMultipleSourceKindFilters = errors.New("multiple source kinds")

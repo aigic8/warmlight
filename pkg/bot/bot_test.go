@@ -76,7 +76,7 @@ func TestReactDefault(t *testing.T) {
 }
 
 func TestReactGetLibraryToken(t *testing.T) {
-	// TODO test the case when user is the owner of the library
+	// TODO: test the case when user is the owner of the library
 	appDB := mustInitDB(TEST_DB_URL)
 	defer appDB.Close()
 	u, _, err := appDB.GetOrCreateUser(1, 1, "aigic8")
@@ -99,6 +99,39 @@ func TestReactGetLibraryToken(t *testing.T) {
 	UUIDLifetimeStr := durafmt.Parse(UUIDLifetime).String()
 	expectedText1 := strYourLibraryToken(library.Token.UUID.String(), UUIDLifetimeStr)
 	assert.Equal(t, expectedText1, r.Messages[0].Text)
+}
+
+func TestReactSetLibraryToken(t *testing.T) {
+	// TODO: test if the token is expired
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+	u1, _, err := appDB.GetOrCreateUser(1, 1, "aigic8")
+	if err != nil {
+		panic(err)
+	}
+
+	UUIDLifetime := 30 * time.Minute
+	h := Handlers{db: appDB, LibraryUUIDLifetime: UUIDLifetime}
+
+	up1 := makeTestMessageUpdate(u1.ID, u1.FirstName, COMMAND_GET_LIBRARY_TOKEN)
+	_, err = h.reactGetLibraryToken(u1, up1)
+	if err != nil {
+		panic(err)
+	}
+
+	u1Library, err := appDB.GetLibrary(u1.LibraryID)
+
+	u2, _, err := appDB.GetOrCreateUser(2, 12, "aigic88")
+	if err != nil {
+		panic(err)
+	}
+
+	up2 := makeTestMessageUpdate(u2.ID, u2.FirstName, COMMAND_GET_LIBRARY_TOKEN+" "+u1Library.Token.UUID.String())
+	r2, err := h.reactSetLibraryToken(u2, up2)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(r2.Messages))
+	assert.Equal(t, strMergeOrDeleteCurrentLibraryData, r2.Messages[0].Text)
+	assert.Equal(t, utils.MergeOrDeleteCurrentLibraryReplyMarkup, r2.Messages[0].ReplyMarkup)
 }
 
 func TestReactStateEditingSource(t *testing.T) {

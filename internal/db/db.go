@@ -32,6 +32,7 @@ const SourceKindArticle = base.SourceKindArticle
 
 const UserStateNormal = base.UserStateNormal
 const UserStateEditingSource = base.UserStateEditingSource
+const UserStateChangingLibrary = base.UserStateChangingLibrary
 
 type DB struct {
 	pool    *pgxpool.Pool
@@ -65,6 +66,10 @@ type (
 type (
 	StateEditingSourceData struct {
 		SourceID int64 `json:"sourceID"`
+	}
+
+	StateChangingLibraryData struct {
+		LibraryID int64 `json:"libraryID"`
 	}
 )
 
@@ -129,6 +134,25 @@ func (db *DB) SetUserStateEditingSource(userID int64, sourceID int64) (*User, er
 	return &user, nil
 }
 
+func (db *DB) SetUserStateChangingLibrary(userID int64, libraryID int64) (*User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+
+	data := StateChangingLibraryData{LibraryID: libraryID}
+	dataBytes, err := json.Marshal(&data)
+	if err != nil {
+		return nil, err
+	}
+	stateData := pgtype.JSON{Bytes: dataBytes, Status: pgtype.Present}
+
+	user, err := db.q.SetUserState(ctx, base.SetUserStateParams{ID: userID, State: UserStateChangingLibrary, StateData: stateData})
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 func (db *DB) GetOrCreateUser(ID, ChatID int64, firstName string) (*User, bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
@@ -180,6 +204,18 @@ func (db *DB) GetLibrary(libraryID int64) (*Library, error) {
 	if err != nil {
 		return nil, err
 	}
+	return &library, nil
+}
+
+func (db *DB) GetLibraryByUUID(UUID uuid.UUID) (*Library, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+
+	library, err := db.q.GetLibraryByUUID(ctx, uuid.NullUUID{UUID: UUID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+
 	return &library, nil
 }
 
@@ -576,6 +612,10 @@ func (db *DB) DEBUGCleanDB() error {
 	}
 
 	if err := db.q.CleanUsers(context.Background()); err != nil {
+		return err
+	}
+
+	if err := db.q.CleanLibraries(context.Background()); err != nil {
 		return err
 	}
 

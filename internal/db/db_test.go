@@ -114,6 +114,32 @@ func TestDBSetUserStateEditingSource(t *testing.T) {
 	assert.Equal(t, sourceID, stateData.SourceID)
 }
 
+func TestDBSetUserStateChangingLibrary(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+
+	user, created, err := appDB.GetOrCreateUser(1, 123, "aigic8")
+	if err != nil {
+		panic(err)
+	}
+
+	if !created {
+		panic("user should be created")
+	}
+
+	var newLibraryID int64 = 10
+	user, err = appDB.SetUserStateChangingLibrary(user.ID, newLibraryID)
+	assert.Nil(t, err)
+	assert.Equal(t, pgtype.Present, user.StateData.Status)
+	assert.Equal(t, UserStateChangingLibrary, user.State)
+
+	var stateData StateChangingLibraryData
+	if err := json.Unmarshal(user.StateData.Bytes, &stateData); err != nil {
+		panic(err)
+	}
+	assert.Equal(t, newLibraryID, stateData.LibraryID)
+}
+
 func TestDBGetLibrary(t *testing.T) {
 	appDB := mustInitDB(TEST_DB_URL)
 	defer appDB.Close()
@@ -133,6 +159,30 @@ func TestDBGetLibrary(t *testing.T) {
 	assert.Equal(t, user.ID, library.OwnerID)
 	assert.False(t, library.Token.Valid)
 	assert.False(t, library.TokenExpiresOn.Valid)
+}
+
+func TestDBGetLibraryByUUID(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+
+	user, _, err := appDB.GetOrCreateUser(1, 10, "aigic8")
+	if err != nil {
+		panic(err)
+	}
+
+	libraryUUID := uuid.New()
+	_, err = appDB.SetLibraryToken(user.LibraryID, libraryUUID, time.Now().Add(30*time.Minute))
+	if err != nil {
+		panic(err)
+	}
+
+	library, err := appDB.GetLibraryByUUID(libraryUUID)
+	assert.Nil(t, err)
+	assert.NotNil(t, library)
+	assert.Equal(t, user.ID, library.OwnerID)
+	assert.True(t, library.Token.Valid)
+	assert.Equal(t, libraryUUID.String(), library.Token.UUID.String())
+	assert.True(t, library.TokenExpiresOn.Valid)
 }
 
 func TestDBSetLibraryToken(t *testing.T) {

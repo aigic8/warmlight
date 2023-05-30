@@ -35,6 +35,9 @@ WHERE id = $1 RETURNING *;
 -- name: GetLibrary :one
 SELECT * FROM libraries WHERE id = $1;
 
+-- name: GetLibraryByUUID :one
+SELECT * FROM libraries WHERE token = $1;
+
 -- name: CreateLibrary :one
 INSERT INTO libraries (owner_id) VALUES ($1) RETURNING *;
 
@@ -144,3 +147,6 @@ DELETE FROM quotes;
 
 -- name: CleanUsers :exec
 DELETE FROM users;
+
+-- name: CleanLibraries :exec
+DELETE FROM libraries;
