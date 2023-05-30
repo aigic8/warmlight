@@ -33,6 +33,10 @@ const SourceKindArticle = base.SourceKindArticle
 const UserStateNormal = base.UserStateNormal
 const UserStateEditingSource = base.UserStateEditingSource
 const UserStateChangingLibrary = base.UserStateChangingLibrary
+const UserStateConfirmingLibraryChange = base.UserStateConfirmingLibraryChange
+
+const ChangeLibraryMergeMode = "merge"
+const ChangeLibraryDeleteMode = "delete"
 
 type DB struct {
 	pool    *pgxpool.Pool
@@ -70,6 +74,11 @@ type (
 
 	StateChangingLibraryData struct {
 		LibraryID int64 `json:"libraryID"`
+	}
+
+	StateConfirmingLibraryChangeData struct {
+		LibraryID int64  `json:"libraryID"`
+		Mode      string `json:"mode"`
 	}
 )
 
@@ -146,6 +155,25 @@ func (db *DB) SetUserStateChangingLibrary(userID int64, libraryID int64) (*User,
 	stateData := pgtype.JSON{Bytes: dataBytes, Status: pgtype.Present}
 
 	user, err := db.q.SetUserState(ctx, base.SetUserStateParams{ID: userID, State: UserStateChangingLibrary, StateData: stateData})
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (db *DB) SetUserStateConfirmingLibraryChange(userID int64, libraryID int64, mode string) (*User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel()
+
+	data := StateConfirmingLibraryChangeData{LibraryID: libraryID, Mode: mode}
+	dataBytes, err := json.Marshal(&data)
+	if err != nil {
+		return nil, err
+	}
+	stateData := pgtype.JSON{Bytes: dataBytes, Status: pgtype.Present}
+
+	user, err := db.q.SetUserState(ctx, base.SetUserStateParams{ID: userID, State: UserStateConfirmingLibraryChange, StateData: stateData})
 	if err != nil {
 		return nil, err
 	}

@@ -130,14 +130,42 @@ func TestDBSetUserStateChangingLibrary(t *testing.T) {
 	var newLibraryID int64 = 10
 	user, err = appDB.SetUserStateChangingLibrary(user.ID, newLibraryID)
 	assert.Nil(t, err)
-	assert.Equal(t, pgtype.Present, user.StateData.Status)
 	assert.Equal(t, UserStateChangingLibrary, user.State)
+	assert.Equal(t, pgtype.Present, user.StateData.Status)
 
 	var stateData StateChangingLibraryData
 	if err := json.Unmarshal(user.StateData.Bytes, &stateData); err != nil {
 		panic(err)
 	}
 	assert.Equal(t, newLibraryID, stateData.LibraryID)
+}
+
+func TestDBSetUserStateConfirmingLibraryChange(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+
+	user, created, err := appDB.GetOrCreateUser(1, 123, "aigic8")
+	if err != nil {
+		panic(err)
+	}
+
+	if !created {
+		panic("user should be created")
+	}
+
+	var newLibraryID int64 = 10
+	mode := ChangeLibraryDeleteMode
+	user, err = appDB.SetUserStateConfirmingLibraryChange(user.ID, newLibraryID, mode)
+	assert.Nil(t, err)
+	assert.Equal(t, UserStateConfirmingLibraryChange, user.State)
+	assert.Equal(t, pgtype.Present, user.StateData.Status)
+
+	var stateData StateConfirmingLibraryChangeData
+	if err := json.Unmarshal(user.StateData.Bytes, &stateData); err != nil {
+		panic(err)
+	}
+	assert.Equal(t, newLibraryID, stateData.LibraryID)
+	assert.Equal(t, mode, stateData.Mode)
 }
 
 func TestDBGetLibrary(t *testing.T) {

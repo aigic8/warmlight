@@ -189,7 +189,14 @@ const strMalformedLibraryToken = "Token is not valid."
 const strNoLibraryExistsWithToken = "Token is not valid."
 const strMergeOrDeleteCurrentLibraryData = "Do you want merge your current data or delete it?"
 const strLibraryTokenExpired = "Token is expired!"
+const strLibraryNoLongerExistsOPCancled = "Library you wanted to use, no longer exists. Operation canceled."
+const strConfirmLibraryChangeCancelAnswer = "Cancel"
+const strConfirmLibraryChangeYesAnswer = "Yes, I want use this library."
 
 func strYourLibraryToken(token string, lifetimeStr string) string {
 	return "Your library token is " + token + ". It will expire in " + lifetimeStr + "."
+}
+
+func strConfirmLibraryChange(YesAnswer, NoAnswer string) string {
+	return fmt.Sprintf("Are you sure you want to join this library?\nThis action is IRREVERSIBLE. If yes send '%s'. Send '%s' to cancel.", YesAnswer, NoAnswer)
 }

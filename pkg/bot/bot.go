@@ -651,6 +651,46 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 		return u.Reaction{}, err
 	}
 
+	if user.State == db.UserStateChangingLibrary {
+		if callbackData.Action == m.CALLBACK_COMMAND_DELETE_LIBRARY || callbackData.Action == m.CALLBACK_COMMAND_MERGE_LIBRARY {
+			var stateData db.StateChangingLibraryData
+			if err = json.Unmarshal(user.StateData.Bytes, &stateData); err != nil {
+				return u.Reaction{}, err
+			}
+
+			library, err := h.db.GetLibrary(stateData.LibraryID)
+			if err != nil {
+				if errors.Is(err, db.ErrNotFound) {
+					if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
+						return u.Reaction{}, err
+					}
+					return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(update.Message.Chat.ID, strLibraryNoLongerExistsOPCancled)}}, nil
+				}
+				return u.Reaction{}, err
+			}
+
+			if library.TokenExpiresOn.Time.Before(time.Now()) {
+				if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
+					return u.Reaction{}, err
+				}
+				return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(update.Message.Chat.ID, strLibraryTokenExpired)}}, nil
+			}
+
+			mode := db.ChangeLibraryMergeMode
+			if callbackData.Action == m.CALLBACK_COMMAND_DELETE_LIBRARY {
+				mode = db.ChangeLibraryDeleteMode
+			}
+
+			_, err = h.db.SetUserStateConfirmingLibraryChange(user.ID, stateData.LibraryID, mode)
+			if err != nil {
+				return u.Reaction{}, err
+			}
+
+			text := strConfirmLibraryChange(strConfirmLibraryChangeYesAnswer, strConfirmLibraryChangeCancelAnswer)
+			return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(update.Message.Chat.ID, text)}}, nil
+		}
+	}
+
 	if callbackData.Action != "" {
 		switch callbackData.Action {
 		case m.CALLBACK_COMMAND_ACTIVATE_OUTPUT:
