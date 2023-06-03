@@ -1,4 +1,4 @@
-package bot
+package strs
 
 import (
 	"fmt"
@@ -10,9 +10,7 @@ import (
 	"github.com/go-telegram/bot"
 )
 
-// TODO separate package from bot package
-
-// Commands
+// COMMANDS ///////////////////////////////////////////////////////
 const COMMAND_START = "/start"
 const COMMAND_SET_ACTIVE_SOURCE = "/setactivesource"
 const COMMAND_GET_OUTPUTS = "/getoutputs"
@@ -21,36 +19,36 @@ const COMMAND_GET_SOURCES = "/getsources"
 const COMMAND_GET_LIBRARY_TOKEN = "/getlibtoken"
 const COMMAND_SET_LIBRARY_TOKEN = "/setlibtoken"
 
-const strInternalServerErr = "Internal server error happened!\nPlease retry"
-const strQuoteAdded = "Quote added"
-const strOperationCanceled = "Operation canceled."
+// COMMON STRINGS ////////////////////////////////////////////////
+const InternalServerErr = "Internal server error happened!\nPlease retry"
+const QuoteAdded = "Quote added"
+const OperationCanceled = "Operation canceled."
 
-func strWelcomeToBot(firstName string) string {
+func WelcomeToBot(firstName string) string {
 	return "Welcome to the bot " + firstName + "!"
 }
 
-func strYouAreAlreadyJoined(firstName string) string {
+func YouAreAlreadyJoined(firstName string) string {
 	return "You are already joined " + firstName + "!"
 }
 
-func strYourDataIsLost(firstName string) string {
+func YourDataIsLost(firstName string) string {
 	return "Sorry, it looks like we lost your data" + firstName + "!"
 }
 
-// Active Source setting
-
-// TODO
-const strMalformedSetActiveSource = "TODO write different examples on how to set active source"
-const strSourceTimeoutShouldBeGreaterThanZero = "active source timeout should be greater than zero!"
-const strActiveSourceExpired = "active source expired"
-const strQuoteAddedButFailedToPublish = "quote is added but failed to publish in channels"
-const strNoActiveSource = "You currently have no active sources!"
-const strOnlyOneSourceKindFilterIsAllowed = "Currently you can not use more than one filter for sources!"
-const strSourceNoLongerExists = "Source no longer exists"
-const strCanceledEditMode = "Operation canceled"
-const strGoingBackToNormalMode = "There was an error in operation. Canceled the operation."
-const strMalformedEditSourceText = "TODO edit text was malformed. Please rewrite it."
-const strMalformedPersonDates = "TODO malformed person dates"
+// SOURCES ///////////////////////////////////////////////////////
+// TODO: write different examples on how to set active source
+const MalformedSetActiveSource = "TODO write different examples on how to set active source"
+const SourceTimeoutShouldBeGreaterThanZero = "active source timeout should be greater than zero!"
+const ActiveSourceExpired = "active source expired"
+const QuoteAddedButFailedToPublish = "quote is added but failed to publish in channels"
+const NoActiveSource = "You currently have no active sources!"
+const OnlyOneSourceKindFilterIsAllowed = "Currently you can not use more than one filter for sources!"
+const SourceNoLongerExists = "Source no longer exists"
+const CanceledEditMode = "Operation canceled"
+const GoingBackToNormalMode = "There was an error in operation. Canceled the operation."
+const MalformedEditSourceText = "TODO edit text was malformed. Please rewrite it."
+const MalformedPersonDates = "TODO malformed person dates"
 
 const SOURCE_NAME = "name"
 const SOURCE_KIND = "kind"
@@ -66,29 +64,29 @@ const SOURCE_PERSON_LIVED_IN = "lived in"
 const SOURCE_ARTICLE_AUTHOR = "author"
 const SOURCE_ARTICLE_URL = "url"
 
-func strActiveSourceDeactivated(sourceName string) string {
+func ActiveSourceDeactivated(sourceName string) string {
 	return "source '" + sourceName + "' deactivated"
 }
 
-func strActiveSourceIsSet(sourceName string, timeoutMinutes int) string {
+func ActiveSourceIsSet(sourceName string, timeoutMinutes int) string {
 	return fmt.Sprintf("The source '%s' is set as active source for %d minutes", sourceName, timeoutMinutes)
 }
 
-func strSourceDoesNotExist(sourceName string) string {
+func SourceDoesNotExist(sourceName string) string {
 	return fmt.Sprintf("Source '%s' does not exist", sourceName)
 }
 
-func strInvalidSourceKind(sourceKind string) string {
+func InvalidSourceKind(sourceKind string) string {
 	return fmt.Sprintf("Source kind '%s' is not a valid source kind. Valid source kinds are %s.", sourceKind, strings.Join(db.VALID_SOURCE_KINDS, ", "))
 }
 
-func strUpdatedSource(newSource *db.Source) (string, error) {
+func UpdatedSource(newSource *db.Source) (string, error) {
 	data, err := utils.ParseSourceData(newSource.Kind, newSource.Data)
 	if err != nil {
 		return "", err
 	}
 
-	sourceInfoStr, err := strSourceInfo(newSource, data)
+	sourceInfoStr, err := SourceInfo(newSource, data)
 	if err != nil {
 		return "", err
 	}
@@ -96,7 +94,7 @@ func strUpdatedSource(newSource *db.Source) (string, error) {
 	return "updated successfully. New source info:\n" + sourceInfoStr, nil
 }
 
-func strSourceInfo(source *db.Source, sourceData any) (string, error) {
+func SourceInfo(source *db.Source, sourceData any) (string, error) {
 	switch source.Kind {
 	case db.SourceKindUnknown:
 		return source.Name + " (unknown)", nil
@@ -121,8 +119,8 @@ func strSourceInfo(source *db.Source, sourceData any) (string, error) {
 	}
 }
 
-func strEditSource(source *db.Source, sourceData any) (string, error) {
-	sourceInfo, err := strSourceInfo(source, sourceData)
+func EditSource(source *db.Source, sourceData any) (string, error) {
+	sourceInfo, err := SourceInfo(source, sourceData)
 	if err != nil {
 		return "", err
 	}
@@ -131,7 +129,7 @@ func strEditSource(source *db.Source, sourceData any) (string, error) {
 }
 
 // IMPORTANT needs support for Markdown parseMode
-func strListOfSources(sources []db.Source) string {
+func ListOfSources(sources []db.Source) string {
 	if len(sources) == 0 {
 		return "No source was found!"
 	}
@@ -144,8 +142,9 @@ func strListOfSources(sources []db.Source) string {
 	return text
 }
 
+// OUTPUTS ///////////////////////////////////////////////////////
 // IMPORTANT needs support for Markdown parseMode
-func strListOfYourOutputs(outputs []db.Output) string {
+func ListOfYourOutputs(outputs []db.Output) string {
 	if len(outputs) == 0 {
 		return "You have no outputs.\n To add an output you need to set the bot as admin of a channel.\n If you have already done that, please redo it and try again."
 	}
@@ -161,8 +160,9 @@ func strListOfYourOutputs(outputs []db.Output) string {
 	return text
 }
 
+// QUOTES ////////////////////////////////////////////////////////
 // IMPORTANT needs support Markdown parseMode
-func strQuote(q *utils.Quote) string {
+func Quote(q *utils.Quote) string {
 	message := bot.EscapeMarkdown(q.Text)
 
 	if q.MainSource != "" {
@@ -184,22 +184,22 @@ func strQuote(q *utils.Quote) string {
 	return message
 }
 
-// LIBRARY
-const strOnlyTheOwnerCanAddNewUsers = "Only the owner of library can add new users!"
-const strMalformedLibraryToken = "Token is not valid."
-const strNoLibraryExistsWithToken = "Token is not valid."
-const strMergeOrDeleteCurrentLibraryData = "Do you want merge your current data or delete it?"
-const strLibraryTokenExpired = "Token is expired!"
-const strLibraryNoLongerExistsOPCancled = "Library you wanted to use, no longer exists. Operation canceled."
-const strConfirmLibraryChangeCancelAnswer = "Cancel"
-const strConfirmLibraryChangeYesAnswer = "Yes, I want use this library."
-const strUnknownLibraryConfirmationMessage = "Unknwon reply, valid answers are either '" + strConfirmLibraryChangeYesAnswer + "' or '" + strConfirmLibraryChangeCancelAnswer + "'."
-const strLibraryChangedSuccessfully = "Library changed successfully!"
+// LIBRARIES /////////////////////////////////////////////////////
+const OnlyTheOwnerCanAddNewUsers = "Only the owner of library can add new users!"
+const MalformedLibraryToken = "Token is not valid."
+const NoLibraryExistsWithToken = "Token is not valid."
+const MergeOrDeleteCurrentLibraryData = "Do you want merge your current data or delete it?"
+const LibraryTokenExpired = "Token is expired!"
+const LibraryNoLongerExistsOPCancled = "Library you wanted to use, no longer exists. Operation canceled."
+const ConfirmLibraryChangeCancelAnswer = "Cancel"
+const ConfirmLibraryChangeYesAnswer = "Yes, I want use this library."
+const UnknownLibraryConfirmationMessage = "Unknwon reply, valid answers are either '" + ConfirmLibraryChangeYesAnswer + "' or '" + ConfirmLibraryChangeCancelAnswer + "'."
+const LibraryChangedSuccessfully = "Library changed successfully!"
 
-func strYourLibraryToken(token string, lifetimeStr string) string {
+func YourLibraryToken(token string, lifetimeStr string) string {
 	return "Your library token is " + token + ". It will expire in " + lifetimeStr + "."
 }
 
-func strConfirmLibraryChange(YesAnswer, NoAnswer string) string {
+func ConfirmLibraryChange(YesAnswer, NoAnswer string) string {
 	return fmt.Sprintf("Are you sure you want to join this library?\nThis action is IRREVERSIBLE. If yes send '%s'. Send '%s' to cancel.", YesAnswer, NoAnswer)
 }
