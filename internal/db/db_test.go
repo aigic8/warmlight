@@ -54,6 +54,92 @@ func TestDBGetOrCreateUser(t *testing.T) {
 	assert.Equal(t, ID, user2.ID)
 }
 
+func TestDBDeleteUserCurrentLibraryAndMigrateTo(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+
+	u1, _, err := appDB.GetOrCreateUser(1, 123, "aigic8")
+	if err != nil {
+		panic(err)
+	}
+
+	var u2ChatID int64 = 321
+	u2FirstName := "aigic2"
+	u2, _, err := appDB.GetOrCreateUser(2, u2ChatID, u2FirstName)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = appDB.CreateQuoteWithData(u2.LibraryID, "bla bla", "bla", []string{"bla"}, []string{"bla2"})
+	if err != nil {
+		panic(err)
+	}
+
+	err = appDB.DeleteUserCurrentLibraryAndMigrateTo(u2.ID, u2.LibraryID, u1.LibraryID)
+	assert.Nil(t, err)
+
+	u2New, created, err := appDB.GetOrCreateUser(u2.ID, u2ChatID, u2FirstName)
+	if err != nil {
+		panic(err)
+	}
+	if created {
+		panic("user 2 should not be created again")
+	}
+
+	assert.Equal(t, u1.LibraryID, u2New.LibraryID)
+
+	_, err = appDB.GetLibrary(u2.LibraryID)
+	assert.NotNil(t, err)
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestDBMergeUserCurrentLibraryAndMigrateTo(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+
+	u1, _, err := appDB.GetOrCreateUser(1, 123, "aigic8")
+	if err != nil {
+		panic(err)
+	}
+
+	var u2ChatID int64 = 321
+	u2FirstName := "aigic2"
+	u2, _, err := appDB.GetOrCreateUser(2, u2ChatID, u2FirstName)
+	if err != nil {
+		panic(err)
+	}
+
+	quoteText := "longEnoughText"
+	_, err = appDB.CreateQuoteWithData(u2.LibraryID, quoteText, "bla", []string{"bla"}, []string{"bla2"})
+	if err != nil {
+		panic(err)
+	}
+
+	err = appDB.MergeUserCurrentLibraryAndMigrateTo(u2.ID, u2.LibraryID, u1.LibraryID)
+	assert.Nil(t, err)
+
+	u2New, created, err := appDB.GetOrCreateUser(u2.ID, u2ChatID, u2FirstName)
+	if err != nil {
+		panic(err)
+	}
+	if created {
+		panic("user 2 should not be created again")
+	}
+
+	assert.Equal(t, u1.LibraryID, u2New.LibraryID)
+
+	_, err = appDB.GetLibrary(u2.LibraryID)
+	assert.NotNil(t, err)
+	assert.ErrorIs(t, err, ErrNotFound)
+
+	quotes, err := appDB.SearchQuotes(u1.LibraryID, quoteText, 10)
+	if err != nil {
+		panic(err)
+	}
+
+	assert.Equal(t, 1, len(quotes))
+}
+
 func TestDBSetUserStateNormal(t *testing.T) {
 	appDB := mustInitDB(TEST_DB_URL)
 	defer appDB.Close()

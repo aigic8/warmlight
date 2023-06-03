@@ -224,6 +224,140 @@ func (db *DB) GetOrCreateUser(ID, ChatID int64, firstName string) (*User, bool, 
 	return &user, false, nil
 }
 
+func (db *DB) DeleteUserCurrentLibraryAndMigrateTo(userID, currLibraryID, newLibraryID int64) error {
+	c, err := db.pool.Acquire(context.Background())
+	if err != nil {
+		return err
+	}
+	defer c.Release()
+
+	tx, err := c.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(context.Background())
+		} else {
+			tx.Commit(context.Background())
+		}
+	}()
+
+	q := db.q.WithTx(tx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*db.Timeout)
+	defer cancel()
+	if err = q.DeleteQuotesTagsInLibrary(ctx, currLibraryID); err != nil {
+		return err
+	}
+
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 2*db.Timeout)
+	defer cancel2()
+	if err = q.DeleteQuotesSourcesInLibrary(ctx2, currLibraryID); err != nil {
+		return err
+	}
+
+	ctx3, cancel3 := context.WithTimeout(context.Background(), 2*db.Timeout)
+	defer cancel3()
+	if err = q.DeleteQuotesInLibrary(ctx3, currLibraryID); err != nil {
+		return err
+	}
+
+	ctx4, cancel4 := context.WithTimeout(context.Background(), 2*db.Timeout)
+	defer cancel4()
+	if err = q.DeleteTagsInLibrary(ctx4, currLibraryID); err != nil {
+		return err
+	}
+
+	ctx5, cancel5 := context.WithTimeout(context.Background(), 2*db.Timeout)
+	defer cancel5()
+	if err = q.DeleteSourcesInLibrary(ctx5, currLibraryID); err != nil {
+		return err
+	}
+
+	ctx6, cancel6 := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel6()
+	if _, err = q.SetUserLibrary(ctx6, base.SetUserLibraryParams{LibraryID: newLibraryID, ID: userID}); err != nil {
+		return err
+	}
+
+	ctx7, cancel7 := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel7()
+	if err = q.DeleteLibrary(ctx7, currLibraryID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) MergeUserCurrentLibraryAndMigrateTo(userID, currLibraryID, newLibraryID int64) error {
+	c, err := db.pool.Acquire(context.Background())
+	if err != nil {
+		return err
+	}
+	defer c.Release()
+
+	tx, err := c.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(context.Background())
+		} else {
+			tx.Commit(context.Background())
+		}
+	}()
+
+	q := db.q.WithTx(tx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*db.Timeout)
+	defer cancel()
+	if err = q.SetQuotesTagsLibrary(ctx, base.SetQuotesTagsLibraryParams{LibraryID: newLibraryID, LibraryID_2: currLibraryID}); err != nil {
+		return err
+	}
+
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 2*db.Timeout)
+	defer cancel2()
+	if err = q.SetQuotesSourcesLibrary(ctx2, base.SetQuotesSourcesLibraryParams{LibraryID: newLibraryID, LibraryID_2: currLibraryID}); err != nil {
+		return err
+	}
+
+	ctx3, cancel3 := context.WithTimeout(context.Background(), 2*db.Timeout)
+	defer cancel3()
+	if err = q.SetQuotesLibrary(ctx3, base.SetQuotesLibraryParams{LibraryID: newLibraryID, LibraryID_2: currLibraryID}); err != nil {
+		return err
+	}
+
+	ctx4, cancel4 := context.WithTimeout(context.Background(), 2*db.Timeout)
+	defer cancel4()
+	if err = q.SetTagsLibrary(ctx4, base.SetTagsLibraryParams{LibraryID: newLibraryID, LibraryID_2: currLibraryID}); err != nil {
+		return err
+	}
+
+	ctx5, cancel5 := context.WithTimeout(context.Background(), 2*db.Timeout)
+	defer cancel5()
+	if err = q.SetSourcesLibrary(ctx5, base.SetSourcesLibraryParams{LibraryID: newLibraryID, LibraryID_2: currLibraryID}); err != nil {
+		return err
+	}
+
+	ctx6, cancel6 := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel6()
+	if _, err = q.SetUserLibrary(ctx6, base.SetUserLibraryParams{LibraryID: newLibraryID, ID: userID}); err != nil {
+		return err
+	}
+
+	ctx7, cancel7 := context.WithTimeout(context.Background(), db.Timeout)
+	defer cancel7()
+	if err = q.DeleteLibrary(ctx7, currLibraryID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (db *DB) GetLibrary(libraryID int64) (*Library, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
@@ -317,7 +451,7 @@ func (db *DB) CreateQuoteWithData(libraryID int64, text, mainSource string, tagN
 		if err != nil {
 			return nil, err
 		}
-		err = q.CreateQuotesTags(ctx, base.CreateQuotesTagsParams{Quote: quote.ID, Tag: tagID})
+		err = q.CreateQuotesTags(ctx, base.CreateQuotesTagsParams{Quote: quote.ID, Tag: tagID, LibraryID: libraryID})
 		if err != nil {
 			return nil, err
 		}
@@ -330,7 +464,7 @@ func (db *DB) CreateQuoteWithData(libraryID int64, text, mainSource string, tagN
 		if err != nil {
 			return nil, err
 		}
-		err = q.CreateQuotesSources(ctx, base.CreateQuotesSourcesParams{Quote: quote.ID, Source: sourceID})
+		err = q.CreateQuotesSources(ctx, base.CreateQuotesSourcesParams{Quote: quote.ID, Source: sourceID, LibraryID: libraryID})
 		if err != nil {
 			return nil, err
 		}

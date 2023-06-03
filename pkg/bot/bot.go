@@ -165,6 +165,8 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 			r, err = h.reactNewUser(user, update)
 		case user.State == db.UserStateEditingSource:
 			r, err = h.reactStateEditingSource(user, update)
+		case user.State == db.UserStateConfirmingLibraryChange:
+			r, err = h.reactStateConfirmingLibraryChange(user, update)
 		case update.Message.Text == COMMAND_START:
 			r, err = h.reactAlreadyJoinedStart(user, update)
 		case strings.HasPrefix(update.Message.Text, COMMAND_SET_ACTIVE_SOURCE):
@@ -374,6 +376,56 @@ func (h Handlers) reactStateEditingSource(user *db.User, update *models.Update) 
 	}
 
 	return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, updateStr)}}, nil
+}
+
+func (h Handlers) reactStateConfirmingLibraryChange(user *db.User, update *models.Update) (u.Reaction, error) {
+	if update.Message.Text == strConfirmLibraryChangeYesAnswer {
+		var stateData db.StateConfirmingLibraryChangeData
+		if err := json.Unmarshal(user.StateData.Bytes, &stateData); err != nil {
+			return u.Reaction{}, err
+		}
+
+		_, err := h.db.GetLibrary(stateData.LibraryID)
+		if err != nil {
+			if errors.Is(err, db.ErrNotFound) {
+				if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
+					return u.Reaction{}, err
+				}
+				return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(update.Message.Chat.ID, strLibraryNoLongerExistsOPCancled)}}, nil
+			}
+
+			return u.Reaction{}, err
+		}
+
+		if stateData.Mode == db.ChangeLibraryDeleteMode {
+			err = h.db.DeleteUserCurrentLibraryAndMigrateTo(user.ID, user.LibraryID, stateData.LibraryID)
+			if err != nil {
+				return u.Reaction{}, err
+			}
+
+		} else if stateData.Mode == db.ChangeLibraryMergeMode {
+			err = h.db.MergeUserCurrentLibraryAndMigrateTo(user.ID, user.LibraryID, stateData.LibraryID)
+			if err != nil {
+				return u.Reaction{}, err
+			}
+
+		} else {
+			return u.Reaction{}, fmt.Errorf("unknown change library mode: '%s' ", stateData.Mode)
+		}
+
+		return u.Reaction{
+			Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, strLibraryChangedSuccessfully)},
+		}, nil
+	}
+
+	if update.Message.Text == strConfirmLibraryChangeCancelAnswer {
+		if _, err := h.db.SetUserStateNormal(user.ID); err != nil {
+			return u.Reaction{}, err
+		}
+		return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, strOperationCanceled)}}, nil
+	}
+
+	return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, strUnknownLibraryConfirmationMessage)}}, nil
 }
 
 func (h Handlers) reactAlreadyJoinedStart(user *db.User, update *models.Update) (u.Reaction, error) {

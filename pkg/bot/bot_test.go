@@ -188,6 +188,32 @@ func TestReactStateEditingSource(t *testing.T) {
 	assert.Equal(t, expectedText, r.Messages[0].Text)
 }
 
+func TestReactStateConfirmingLibraryChange(t *testing.T) {
+	appDB := mustInitDB(TEST_DB_URL)
+	defer appDB.Close()
+	u1, _, err := appDB.GetOrCreateUser(1, 123, "aigic8")
+	if err != nil {
+		panic(err)
+	}
+
+	u2, _, err := appDB.GetOrCreateUser(2, 321, "aigic2")
+	if err != nil {
+		panic(err)
+	}
+
+	u2, err = appDB.SetUserStateConfirmingLibraryChange(u2.ID, u1.LibraryID, db.ChangeLibraryDeleteMode)
+	if err != nil {
+		panic(err)
+	}
+
+	h := Handlers{db: appDB}
+	update := makeTestMessageUpdate(u2.ID, u2.FirstName, strConfirmLibraryChangeYesAnswer)
+	r, err := h.reactStateConfirmingLibraryChange(u2, update)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(r.Messages))
+	assert.Equal(t, strLibraryChangedSuccessfully, r.Messages[0].Text)
+}
+
 func TestReactDefaultWithOutput(t *testing.T) {
 	appDB := mustInitDB(TEST_DB_URL)
 	defer appDB.Close()

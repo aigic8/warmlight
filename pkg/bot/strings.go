@@ -23,6 +23,7 @@ const COMMAND_SET_LIBRARY_TOKEN = "/setlibtoken"
 
 const strInternalServerErr = "Internal server error happened!\nPlease retry"
 const strQuoteAdded = "Quote added"
+const strOperationCanceled = "Operation canceled."
 
 func strWelcomeToBot(firstName string) string {
 	return "Welcome to the bot " + firstName + "!"
@@ -192,6 +193,8 @@ const strLibraryTokenExpired = "Token is expired!"
 const strLibraryNoLongerExistsOPCancled = "Library you wanted to use, no longer exists. Operation canceled."
 const strConfirmLibraryChangeCancelAnswer = "Cancel"
 const strConfirmLibraryChangeYesAnswer = "Yes, I want use this library."
+const strUnknownLibraryConfirmationMessage = "Unknwon reply, valid answers are either '" + strConfirmLibraryChangeYesAnswer + "' or '" + strConfirmLibraryChangeCancelAnswer + "'."
+const strLibraryChangedSuccessfully = "Library changed successfully!"
 
 func strYourLibraryToken(token string, lifetimeStr string) string {
 	return "Your library token is " + token + ". It will expire in " + lifetimeStr + "."

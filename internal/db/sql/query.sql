@@ -30,6 +30,9 @@ UPDATE users SET
   active_source_expire = NULL
 WHERE id = $1 RETURNING *;
 
+-- name: SetUserLibrary :one
+UPDATE users SET library_id = $1 WHERE id = $2 RETURNING *;
+
 --------- LIBRARIES ----------
 
 -- name: GetLibrary :one
@@ -44,6 +47,9 @@ INSERT INTO libraries (owner_id) VALUES ($1) RETURNING *;
 -- name: SetLibraryToken :one
 UPDATE libraries SET token = $1, token_expires_on = $2 WHERE id = $3 RETURNING *;
 
+-- name: DeleteLibrary :exec
+DELETE FROM libraries WHERE id = $1;
+
 ---------- QUOTES ------------
 
 -- name: CreateQuote :one
@@ -51,6 +57,12 @@ INSERT INTO quotes (library_id, text, main_source) VALUES ($1, $2, $3) RETURNING
 
 -- name: SearchQuotes :many
 SELECT id, text, main_source, library_id, created_at, updated_at FROM quotes WHERE library_id = $1 AND text_tokens @@ TO_TSQUERY('english', $2) LIMIT $3;
+
+-- name: SetQuotesLibrary :exec
+UPDATE quotes SET library_id = $1 WHERE library_id = $2;
+
+-- name: DeleteQuotesInLibrary :exec
+DELETE FROM quotes WHERE library_id = $1;
 
 ---------- SOURCES -----------
 
@@ -86,6 +98,12 @@ UPDATE sources SET kind = $1, data = $2  WHERE library_id = $3 AND id = $4 RETUR
 -- name: UpdateSource :one
 UPDATE sources SET name = $1, kind = $2, data = $3, updated_at = NOW() WHERE library_id = $4 AND id = $5 RETURNING *;
 
+-- name: SetSourcesLibrary :exec
+UPDATE sources SET library_id = $1 WHERE library_id = $2;
+
+-- name: DeleteSourcesInLibrary :exec
+DELETE FROM sources WHERE library_id = $1;
+
 ---------- OUTPUTS -----------
 
 -- name: CreateOutput :one
@@ -117,13 +135,31 @@ WITH created_id AS (
   INSERT INTO tags (library_id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id
 ) SELECT id FROM created_id UNION ALL SELECT id FROM tags WHERE library_id = $1 AND name = $2 LIMIT 1;
 
+-- name: DeleteTagsInLibrary :exec
+DELETE FROM tags WHERE library_id = $1;
+
+-- name: SetTagsLibrary :exec
+UPDATE tags SET library_id = $1 WHERE library_id = $2;
+
 -------- ASSOCIATIONS ---------
 
 -- name: CreateQuotesTags :exec
-INSERT INTO quotes_tags (quote, tag) VALUES ($1, $2);
+INSERT INTO quotes_tags (quote, tag, library_id) VALUES ($1, $2, $3);
+
+-- name: DeleteQuotesTagsInLibrary :exec
+DELETE FROM quotes_tags WHERE library_id = $1;
+
+-- name: SetQuotesTagsLibrary :exec
+UPDATE quotes_tags SET library_id = $1 WHERE library_id = $2;
 
 -- name: CreateQuotesSources :exec
-INSERT INTO quotes_sources (quote, source) VALUES ($1, $2);
+INSERT INTO quotes_sources (quote, source, library_id) VALUES ($1, $2, $3);
+
+-- name: DeleteQuotesSourcesInLibrary :exec
+DELETE FROM quotes_sources WHERE library_id = $1;
+
+-- name: SetQuotesSourcesLibrary :exec
+UPDATE quotes_sources SET library_id = $1 WHERE library_id = $2;
 
 ----------- DEBUG ------------
 
