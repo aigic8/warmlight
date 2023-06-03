@@ -128,7 +128,7 @@ func EditMapToJsonBook(baseSource *db.Source, editMap map[string]string) ([]byte
 		sourceData = baseSourceData.(db.SourceBookData)
 	}
 
-	// FIXME use base package strings
+	// TODO: use base package strings
 	if linkToInfo, exist := editMap["info url"]; exist {
 		sourceData.LinkToInfo = linkToInfo
 	}

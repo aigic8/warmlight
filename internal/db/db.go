@@ -58,7 +58,7 @@ type (
 		Author string `json:"author,omitempty"`
 	}
 
-	// FIXME convert bornOn and deathOn to integers (only year is important)
+	// TODO: convert bornOn and deathOn to integers (only year is important)
 	SourcePersonData struct {
 		LinkToInfo string    `json:"linkToInfo,omitempty"`
 		Title      string    `json:"title,omitempty"`
@@ -96,7 +96,7 @@ func NewDB(URL string, timeout time.Duration) (*DB, error) {
 }
 
 func (db *DB) Init() error {
-	// TODO create init function
+	// TODO: create init function
 	return nil
 }
 
@@ -112,7 +112,7 @@ func (db *DB) GetUser(ID int64) (*User, error) {
 }
 
 func (db *DB) SetUserStateNormal(userID int64) (*User, error) {
-	// FIXME test SetUserStateNormal
+	// TODO: test SetUserStateNormal
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
 	user, err := db.q.SetUserState(ctx, base.SetUserStateParams{ID: userID, State: UserStateNormal, StateData: pgtype.JSON{Status: pgtype.Null}})
@@ -124,7 +124,7 @@ func (db *DB) SetUserStateNormal(userID int64) (*User, error) {
 }
 
 func (db *DB) SetUserStateEditingSource(userID int64, sourceID int64) (*User, error) {
-	// FIXME test SetUserStateEditingSource
+	// TODO: test SetUserStateEditingSource
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
 
@@ -496,7 +496,7 @@ func (db *DB) GetSource(libraryID int64, name string) (*Source, error) {
 }
 
 func (db *DB) GetSourceByID(libraryID int64, sourceID int64) (*Source, error) {
-	// FIXME test GetSourceByID
+	// TODO: test GetSourceByID
 	ctx, cancel := context.WithTimeout(context.Background(), db.Timeout)
 	defer cancel()
 	source, err := db.q.GetSourceByID(ctx, base.GetSourceByIDParams{LibraryID: libraryID, ID: sourceID})

@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
 )
 
-// FIXME go framework agnostic way!
 type Reaction struct {
 	Messages     []bot.SendMessageParams
 	EditMessages []bot.EditMessageTextParams
@@ -32,4 +32,16 @@ func (r Reaction) Do(ctx context.Context, bot *bot.Bot) error {
 	}
 
 	return nil
+}
+
+func ReplyReaction(message *models.Message, text string) Reaction {
+	return Reaction{Messages: []bot.SendMessageParams{
+		TextReplyToMessage(message, text),
+	}}
+}
+
+func TextReaction(chatID int64, text string) Reaction {
+	return Reaction{Messages: []bot.SendMessageParams{
+		TextMessage(chatID, text),
+	}}
 }

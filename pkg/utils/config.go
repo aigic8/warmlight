@@ -40,7 +40,7 @@ const DEFAULT_LIBRARY_TOKEN_EXPIRE_MINS = 30
 const DEFAULT_PORT = 443
 
 func LoadConfig(configPath string) (*Config, error) {
-	// TODO test LoadConfig
+	// TODO: test LoadConfig
 	file, err := os.Open(configPath)
 	if err != nil {
 		return nil, err

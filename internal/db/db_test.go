@@ -15,8 +15,6 @@ import (
 const TEST_DB_URL = "postgresql://postgres:postgres@localhost:1616/warmlight_test"
 const DB_TIMEOUT = 2 * time.Second
 
-// TODO refactor to standard testing methods
-
 func TestNewDB(t *testing.T) {
 	appDB, err := NewDB(TEST_DB_URL, DB_TIMEOUT)
 	assert.Nil(t, err)

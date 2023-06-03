@@ -37,7 +37,7 @@ type Config struct {
 
 const SOURCES_PAGE_LIMIT = 5
 
-// TODO add support for filtering HASHTAGS and SOURCES for different outputs
+// TODO: add support for filtering HASHTAGS and SOURCES for different outputs
 
 func RunBot(appDB *db.DB, token string, config *Config) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -98,7 +98,7 @@ type Handlers struct {
 }
 
 func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	// TODO support groups
+	// TODO: support groups
 	if update.MyChatMember != nil {
 		if _, err := h.reactMyChatMember(update); err != nil {
 			h.l.Error().Err(err).Msg("reacting to chat member update")
@@ -208,7 +208,7 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 
 /////////////////////// REACTIONS ////////////////////////////
 
-// TODO split reactions to multiple files
+// TODO: split reactions to multiple files
 func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction, error) {
 	q, err := u.ParseQuote(update.Message.Text)
 	if err != nil {
@@ -238,11 +238,7 @@ func (h Handlers) reactDefault(user *db.User, update *models.Update) (u.Reaction
 
 	outputs, err := h.db.GetOutputs(update.Message.From.ID)
 	if err != nil {
-		return u.Reaction{
-			Messages: []bot.SendMessageParams{
-				u.TextReplyToMessage(update.Message, s.QuoteAddedButFailedToPublish),
-			},
-		}, nil
+		return u.ReplyReaction(update.Message, s.QuoteAddedButFailedToPublish), nil
 	}
 
 	messages = append(messages, u.TextReplyToMessage(update.Message, s.QuoteAdded))
@@ -267,15 +263,11 @@ func (h Handlers) reactNewUser(user *db.User, update *models.Update) (u.Reaction
 		messageText = s.YourDataIsLost(user.FirstName)
 	}
 
-	return u.Reaction{
-		Messages: []bot.SendMessageParams{
-			u.TextReplyToMessage(update.Message, messageText),
-		},
-	}, nil
+	return u.ReplyReaction(update.Message, messageText), nil
 }
 
 func (h Handlers) reactStateEditingSource(user *db.User, update *models.Update) (u.Reaction, error) {
-	// FIXME use strings
+	// TODO: use strings
 	if update.Message.Text == "cancel" {
 		if _, err := h.db.SetUserStateNormal(user.ID); err != nil {
 			return u.Reaction{}, err
@@ -288,9 +280,7 @@ func (h Handlers) reactStateEditingSource(user *db.User, update *models.Update) 
 		if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
 			return u.Reaction{}, err
 		}
-		return u.Reaction{Messages: []bot.SendMessageParams{
-			u.TextMessage(update.Message.Chat.ID, s.GoingBackToNormalMode),
-		}}, nil
+		return u.TextReaction(update.Message.Chat.ID, s.GoingBackToNormalMode), nil
 	}
 
 	currentSource, err := h.db.GetSourceByID(user.LibraryID, stateData.SourceID)
@@ -322,7 +312,7 @@ func (h Handlers) reactStateEditingSource(user *db.User, update *models.Update) 
 	kind := currentSource.Kind
 	if sourceKind, ok := editMap[s.SOURCE_KIND]; ok {
 		if !u.IsValidSourceKind(sourceKind) {
-			return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, s.InvalidSourceKind(editMap["kind"]))}}, nil
+			return u.ReplyReaction(update.Message, s.InvalidSourceKind(editMap["kind"])), nil
 		}
 		kind = db.SourceKind(sourceKind)
 	}
@@ -344,7 +334,7 @@ func (h Handlers) reactStateEditingSource(user *db.User, update *models.Update) 
 		jsonBytes, err := u.EditMapToJsonPerson(currentSource, editMap)
 		if err != nil {
 			if errors.Is(err, u.ErrMalformedDates) {
-				return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, s.MalformedPersonDates)}}, nil
+				return u.ReplyReaction(update.Message, s.MalformedPersonDates), nil
 			}
 			return u.Reaction{}, err
 		}
@@ -376,7 +366,7 @@ func (h Handlers) reactStateEditingSource(user *db.User, update *models.Update) 
 		return u.Reaction{}, err
 	}
 
-	return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, updateStr)}}, nil
+	return u.ReplyReaction(update.Message, updateStr), nil
 }
 
 func (h Handlers) reactStateConfirmingLibraryChange(user *db.User, update *models.Update) (u.Reaction, error) {
@@ -392,7 +382,7 @@ func (h Handlers) reactStateConfirmingLibraryChange(user *db.User, update *model
 				if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
 					return u.Reaction{}, err
 				}
-				return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(update.Message.Chat.ID, s.LibraryNoLongerExistsOPCancled)}}, nil
+				return u.TextReaction(update.Message.Chat.ID, s.LibraryNoLongerExistsOPCancled), nil
 			}
 
 			return u.Reaction{}, err
@@ -414,27 +404,21 @@ func (h Handlers) reactStateConfirmingLibraryChange(user *db.User, update *model
 			return u.Reaction{}, fmt.Errorf("unknown change library mode: '%s' ", stateData.Mode)
 		}
 
-		return u.Reaction{
-			Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, s.LibraryChangedSuccessfully)},
-		}, nil
+		return u.ReplyReaction(update.Message, s.LibraryChangedSuccessfully), nil
 	}
 
 	if update.Message.Text == s.ConfirmLibraryChangeCancelAnswer {
 		if _, err := h.db.SetUserStateNormal(user.ID); err != nil {
 			return u.Reaction{}, err
 		}
-		return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, s.OperationCanceled)}}, nil
+		return u.ReplyReaction(update.Message, s.OperationCanceled), nil
 	}
 
-	return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, s.UnknownLibraryConfirmationMessage)}}, nil
+	return u.ReplyReaction(update.Message, s.UnknownLibraryConfirmationMessage), nil
 }
 
 func (h Handlers) reactAlreadyJoinedStart(user *db.User, update *models.Update) (u.Reaction, error) {
-	return u.Reaction{
-		Messages: []bot.SendMessageParams{
-			u.TextReplyToMessage(update.Message, s.YouAreAlreadyJoined(user.FirstName)),
-		},
-	}, nil
+	return u.ReplyReaction(update.Message, s.YouAreAlreadyJoined(user.FirstName)), nil
 }
 
 func (h Handlers) reactGetSources(user *db.User, update *models.Update) (u.Reaction, error) {
@@ -443,11 +427,7 @@ func (h Handlers) reactGetSources(user *db.User, update *models.Update) (u.React
 	filter, err := m.ParseSourceFilter(text)
 	if err != nil {
 		if errors.Is(err, m.ErrMultipleSourceKindFilters) {
-			return u.Reaction{
-				Messages: []bot.SendMessageParams{
-					u.TextReplyToMessage(update.Message, s.OnlyOneSourceKindFilterIsAllowed),
-				},
-			}, nil
+			return u.ReplyReaction(update.Message, s.OnlyOneSourceKindFilterIsAllowed), nil
 		}
 		return u.Reaction{}, err
 	}
@@ -482,7 +462,7 @@ func (h Handlers) reactGetSources(user *db.User, update *models.Update) (u.React
 }
 
 func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.Reaction, error) {
-	// TODO what happens if we already have an active source?
+	// TODO: what happens if we already have an active source?
 	text := strings.TrimSpace(strings.TrimPrefix(update.Message.Text, s.COMMAND_SET_ACTIVE_SOURCE))
 	argsRaw := strings.Split(text, ",")
 	args := make([]string, 0, len(argsRaw))
@@ -493,12 +473,7 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 
 	argsLen := len(args)
 
-	malformedReaction := u.Reaction{
-		Messages: []bot.SendMessageParams{
-			u.TextReplyToMessage(update.Message, s.MalformedSetActiveSource),
-		},
-	}
-
+	malformedReaction := u.ReplyReaction(update.Message, s.MalformedSetActiveSource)
 	if text == "" || argsLen > 2 {
 		return malformedReaction, nil
 	}
@@ -513,22 +488,14 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 	}
 
 	if activeSourceTimeoutInt <= 0 {
-		return u.Reaction{
-			Messages: []bot.SendMessageParams{
-				u.TextReplyToMessage(update.Message, s.SourceTimeoutShouldBeGreaterThanZero),
-			},
-		}, nil
+		return u.ReplyReaction(update.Message, s.SourceTimeoutShouldBeGreaterThanZero), nil
 	}
 	activeSourceExpire := time.Now().Add(time.Minute * time.Duration(activeSourceTimeoutInt))
 
 	_, err = h.db.GetSource(user.LibraryID, args[0])
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
-			return u.Reaction{
-				Messages: []bot.SendMessageParams{
-					u.TextReplyToMessage(update.Message, s.SourceDoesNotExist(args[0])),
-				},
-			}, nil
+			return u.ReplyReaction(update.Message, s.SourceDoesNotExist(args[0])), nil
 		}
 
 		return u.Reaction{}, err
@@ -539,15 +506,11 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 		return u.Reaction{}, err
 	}
 
-	return u.Reaction{
-		Messages: []bot.SendMessageParams{
-			u.TextReplyToMessage(update.Message, s.ActiveSourceIsSet(args[0], activeSourceTimeoutInt)),
-		},
-	}, nil
+	return u.ReplyReaction(update.Message, s.ActiveSourceIsSet(args[0], activeSourceTimeoutInt)), nil
 }
 
 func (h Handlers) reactGetOutputs(user *db.User, update *models.Update) (u.Reaction, error) {
-	// FIXME paginate get outputs
+	// FIXME: paginate get outputs
 	outputs, err := h.db.GetOutputs(user.ID)
 	if err != nil {
 		return u.Reaction{}, err
@@ -572,11 +535,7 @@ func (h Handlers) reactGetLibraryToken(user *db.User, update *models.Update) (u.
 	}
 
 	if library.OwnerID != user.ID {
-		return u.Reaction{
-			Messages: []bot.SendMessageParams{
-				u.TextReplyToMessage(update.Message, s.OnlyTheOwnerCanAddNewUsers),
-			},
-		}, nil
+		return u.ReplyReaction(update.Message, s.OnlyTheOwnerCanAddNewUsers), nil
 	}
 
 	UUID := uuid.New()
@@ -586,51 +545,31 @@ func (h Handlers) reactGetLibraryToken(user *db.User, update *models.Update) (u.
 	}
 
 	UUIDLifetimeStr := durafmt.Parse(h.LibraryUUIDLifetime).String()
-	return u.Reaction{
-		Messages: []bot.SendMessageParams{
-			u.TextReplyToMessage(update.Message, s.YourLibraryToken(UUID.String(), UUIDLifetimeStr)),
-		},
-	}, nil
+	return u.ReplyReaction(update.Message, s.YourLibraryToken(UUID.String(), UUIDLifetimeStr)), nil
 }
 
 func (h Handlers) reactSetLibraryToken(user *db.User, update *models.Update) (u.Reaction, error) {
 	textParts := strings.Fields(update.Message.Text)
 	if len(textParts) != 2 {
-		return u.Reaction{
-			Messages: []bot.SendMessageParams{
-				u.TextReplyToMessage(update.Message, s.MalformedLibraryToken),
-			},
-		}, nil
+		return u.ReplyReaction(update.Message, s.MalformedLibraryToken), nil
 	}
 
 	libraryUUID, err := uuid.Parse(textParts[1])
 	if err != nil {
-		return u.Reaction{
-			Messages: []bot.SendMessageParams{
-				u.TextReplyToMessage(update.Message, s.MalformedLibraryToken),
-			},
-		}, nil
+		return u.ReplyReaction(update.Message, s.MalformedLibraryToken), nil
 	}
 
 	library, err := h.db.GetLibraryByUUID(libraryUUID)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
-			return u.Reaction{
-				Messages: []bot.SendMessageParams{
-					u.TextReplyToMessage(update.Message, s.NoLibraryExistsWithToken),
-				},
-			}, nil
+			return u.ReplyReaction(update.Message, s.NoLibraryExistsWithToken), nil
 		}
 
 		return u.Reaction{}, err
 	}
 
 	if library.TokenExpiresOn.Time.Before(time.Now()) {
-		return u.Reaction{
-			Messages: []bot.SendMessageParams{
-				u.TextReplyToMessage(update.Message, s.LibraryTokenExpired),
-			},
-		}, nil
+		return u.ReplyReaction(update.Message, s.LibraryTokenExpired), nil
 	}
 
 	if _, err = h.db.SetUserStateChangingLibrary(user.ID, library.ID); err != nil {
@@ -645,10 +584,10 @@ func (h Handlers) reactSetLibraryToken(user *db.User, update *models.Update) (u.
 }
 
 func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
-	// FIXME test reactMyChatMember
+	// TODO: test reactMyChatMember
 	chat := update.MyChatMember.Chat
 	from := update.MyChatMember.From
-	// TODO support groups
+	// TODO: support groups
 	if chat.Type != "channel" {
 		return u.Reaction{}, nil
 	}
@@ -671,26 +610,18 @@ func (h Handlers) reactMyChatMember(update *models.Update) (u.Reaction, error) {
 func (h Handlers) reactDeactivateSource(user *db.User, update *models.Update) (u.Reaction, error) {
 	activeSource := user.ActiveSource.String
 	if !user.ActiveSource.Valid {
-		return u.Reaction{
-			Messages: []bot.SendMessageParams{
-				u.TextReplyToMessage(update.Message, s.NoActiveSource),
-			},
-		}, nil
+		return u.ReplyReaction(update.Message, s.NoActiveSource), nil
 	}
 	_, err := h.db.DeactivateSource(user.ID)
 	if err != nil {
 		return u.Reaction{}, err
 	}
 
-	return u.Reaction{
-		Messages: []bot.SendMessageParams{
-			u.TextReplyToMessage(update.Message, s.ActiveSourceDeactivated(activeSource)),
-		},
-	}, nil
+	return u.ReplyReaction(update.Message, s.ActiveSourceDeactivated(activeSource)), nil
 }
 
 func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) {
-	// FIXME test reactCallbackQuery
+	// TODO: test reactCallbackQuery
 	user, err := h.db.GetUser(update.CallbackQuery.Sender.ID)
 	if err != nil {
 		if !errors.Is(err, db.ErrNotFound) {
@@ -717,7 +648,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 					if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
 						return u.Reaction{}, err
 					}
-					return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(update.Message.Chat.ID, s.LibraryNoLongerExistsOPCancled)}}, nil
+					return u.TextReaction(update.Message.Chat.ID, s.LibraryNoLongerExistsOPCancled), nil
 				}
 				return u.Reaction{}, err
 			}
@@ -726,7 +657,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 				if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
 					return u.Reaction{}, err
 				}
-				return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(update.Message.Chat.ID, s.LibraryTokenExpired)}}, nil
+				return u.TextReaction(update.Message.Chat.ID, s.LibraryTokenExpired), nil
 			}
 
 			mode := db.ChangeLibraryMergeMode
@@ -740,7 +671,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 			}
 
 			text := s.ConfirmLibraryChange(s.ConfirmLibraryChangeYesAnswer, s.ConfirmLibraryChangeCancelAnswer)
-			return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(update.Message.Chat.ID, text)}}, nil
+			return u.TextReaction(update.Message.Chat.ID, text), nil
 		}
 	}
 
@@ -770,7 +701,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 			source, err := h.db.GetSourceByID(user.LibraryID, sourceID)
 			if err != nil {
 				if errors.Is(err, db.ErrNotFound) {
-					return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(user.ChatID, s.SourceNoLongerExists)}}, nil
+					return u.TextReaction(user.ChatID, s.SourceNoLongerExists), nil
 				}
 				return u.Reaction{}, err
 			}
@@ -784,7 +715,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 			if err != nil {
 				return u.Reaction{}, err
 			}
-			return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(user.ChatID, infoStr)}}, nil
+			return u.TextReaction(user.ChatID, infoStr), nil
 		case m.CALLBACK_COMMAND_SOURCE_EDIT:
 			sourceID, err := strconv.ParseInt(callbackData.Data, 10, 0)
 			if err != nil {
@@ -793,7 +724,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 			source, err := h.db.GetSourceByID(user.LibraryID, sourceID)
 			if err != nil {
 				if errors.Is(err, db.ErrNotFound) {
-					return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(user.ChatID, s.SourceNoLongerExists)}}, nil
+					return u.TextReaction(user.ChatID, s.SourceNoLongerExists), nil
 				}
 				return u.Reaction{}, err
 			}
@@ -812,7 +743,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 				return u.Reaction{}, err
 			}
 
-			return u.Reaction{Messages: []bot.SendMessageParams{u.TextMessage(user.ChatID, msgText)}}, nil
+			return u.TextReaction(user.ChatID, msgText), nil
 		default:
 			return u.Reaction{}, errors.New("unknown callback data action")
 		}
@@ -846,7 +777,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 }
 
 func (h Handlers) reactInlineQuery(update *models.Update) ([]models.InlineQueryResult, error) {
-	// TODO test reactInlineQuery
+	// TODO: test reactInlineQuery
 	if update.InlineQuery.From.IsBot {
 		return nil, nil
 	}
@@ -866,7 +797,7 @@ func (h Handlers) reactInlineQuery(update *models.Update) ([]models.InlineQueryR
 		return nil, err
 	}
 
-	// TODO add tags
+	// TODO: add tags
 	results := make([]models.InlineQueryResult, 0, len(quotes))
 	for _, q := range quotes {
 		title := "No Source"

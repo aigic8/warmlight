@@ -72,7 +72,7 @@ func ParseSourceFilter(text string) (SourceFilter, error) {
 		}
 	}
 
-	// FIXME use more efficient way using strings.Builder
+	// TODO: use more efficient way using strings.Builder
 	if sourceKindFilterIndex != 0 {
 		sf.Text = fields[0]
 	}

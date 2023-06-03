@@ -125,7 +125,7 @@ func EditSource(source *db.Source, sourceData any) (string, error) {
 		return "", err
 	}
 
-	return "Current:\n" + sourceInfo + "To update use bla bla bla. TODO", nil
+	return "Current:\n" + sourceInfo + "To update use bla bla bla. TODO:", nil
 }
 
 // IMPORTANT needs support for Markdown parseMode
@@ -170,7 +170,7 @@ func Quote(q *utils.Quote) string {
 	}
 
 	if q.Tags != nil && len(q.Tags) != 0 {
-		// TODO find a more efficient way
+		// TODO: find a more efficient way
 		tagsStr := ""
 		if q.Tags != nil && len(q.Tags) != 0 {
 			for _, tag := range q.Tags {
