@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/aigic8/warmlight/internal/db"
@@ -23,7 +24,14 @@ func main() {
 		panic(err)
 	}
 
-	config, err := utils.LoadConfig(path.Join(cwd, rawConfigPath))
+	var configPath string
+	if strings.HasPrefix(rawConfigPath, "/") { // path is absolute
+		configPath = rawConfigPath
+	} else { // path is relative
+		configPath = path.Join(cwd, rawConfigPath)
+	}
+
+	config, err := utils.LoadConfig(configPath)
 	if err != nil {
 		panic(err)
 	}

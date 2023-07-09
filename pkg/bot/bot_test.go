@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const TEST_DB_URL = "postgresql://postgres:postgres@localhost:1616/warmlight_test"
+const TEST_DB_URL = "postgresql://postgres:postgres@localhost/warmlight_dev"
 const TEST_DEFAULT_ACTIVE_SOURCE_TIMEOUT_MINS = 60
 const DB_TIMEOUT = 5 * time.Second
 

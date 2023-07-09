@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const TEST_DB_URL = "postgresql://postgres:postgres@localhost:1616/warmlight_test"
+const TEST_DB_URL = "postgresql://postgres:postgres@localhost/warmlight_dev"
 const DB_TIMEOUT = 2 * time.Second
 
 func TestNewDB(t *testing.T) {

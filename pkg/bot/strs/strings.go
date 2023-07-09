@@ -131,12 +131,12 @@ func EditSource(source *db.Source, sourceData any) (string, error) {
 // IMPORTANT needs support for Markdown parseMode
 func ListOfSources(sources []db.Source) string {
 	if len(sources) == 0 {
-		return "No source was found!"
+		return bot.EscapeMarkdown("No source was found!")
 	}
 
 	text := "Found sources:\n"
 	for i, source := range sources {
-		text += strconv.Itoa(i+1) + ". *" + bot.EscapeMarkdown(source.Name) + "*" + " \\- " + string(source.Kind) + "\n"
+		text += strconv.Itoa(i+1) + bot.EscapeMarkdown(".") + " *" + bot.EscapeMarkdown(source.Name) + "*" + bot.EscapeMarkdown(" - ") + string(source.Kind) + "\n"
 	}
 
 	return text
@@ -146,7 +146,7 @@ func ListOfSources(sources []db.Source) string {
 // IMPORTANT needs support for Markdown parseMode
 func ListOfYourOutputs(outputs []db.Output) string {
 	if len(outputs) == 0 {
-		return "You have no outputs.\n To add an output you need to set the bot as admin of a channel.\n If you have already done that, please redo it and try again."
+		return bot.EscapeMarkdown("You have no outputs.\n To add an output you need to set the bot as admin of a channel.\n If you have already done that, please redo it and try again.")
 	}
 
 	text := "Your outputs are:\n"
@@ -155,7 +155,7 @@ func ListOfYourOutputs(outputs []db.Output) string {
 		if output.IsActive {
 			state = "active"
 		}
-		text += strconv.Itoa(i+1) + ". *" + bot.EscapeMarkdown(output.Title) + "*" + " \\- " + state + "\n"
+		text += strconv.Itoa(i+1) + bot.EscapeMarkdown(".") + " *" + bot.EscapeMarkdown(output.Title) + "*" + bot.EscapeMarkdown(" - "+state) + "\n"
 	}
 	return text
 }

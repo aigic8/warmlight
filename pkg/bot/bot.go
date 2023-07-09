@@ -107,15 +107,23 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 	}
 
 	var r u.Reaction
-	isCallbackQuery := false
 	if update.CallbackQuery != nil {
-		var err error
-		isCallbackQuery = true
-		r, err = h.reactCallbackQuery(update)
+		r, err := h.reactCallbackQuery(update)
 		if err != nil {
 			h.l.Error().Err(err).Msg("reacting to callback query")
 			return
 		}
+		if err = r.Do(ctx, b); err != nil {
+			h.l.Error().Err(err).Msg("sending reaction messages to callback query")
+			_, err = b.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID: update.Message.Chat.ID,
+				Text:   s.InternalServerErr,
+			})
+			if err != nil {
+				h.l.Error().Err(err).Msg("sending internal server error message")
+			}
+		}
+		return
 	}
 
 	if update.InlineQuery != nil {
@@ -160,48 +168,47 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 		return
 	}
 
-	if !isCallbackQuery {
-		switch {
-		case userCreated:
-			r, err = h.reactNewUser(user, update)
-		case user.State == db.UserStateEditingSource:
-			r, err = h.reactStateEditingSource(user, update)
-		case user.State == db.UserStateConfirmingLibraryChange:
-			r, err = h.reactStateConfirmingLibraryChange(user, update)
-		case update.Message.Text == s.COMMAND_START:
-			r, err = h.reactAlreadyJoinedStart(user, update)
-		case strings.HasPrefix(update.Message.Text, s.COMMAND_SET_ACTIVE_SOURCE):
-			r, err = h.reactSetActiveSource(user, update)
-		case strings.HasPrefix(update.Message.Text, s.COMMAND_DEACTIVATE_SOURCE):
-			r, err = h.reactDeactivateSource(user, update)
-		case strings.HasPrefix(update.Message.Text, s.COMMAND_GET_OUTPUTS):
-			r, err = h.reactGetOutputs(user, update)
-		case strings.HasPrefix(update.Message.Text, s.COMMAND_GET_LIBRARY_TOKEN):
-			r, err = h.reactGetLibraryToken(user, update)
-		case strings.HasPrefix(update.Message.Text, s.COMMAND_SET_LIBRARY_TOKEN):
-			r, err = h.reactSetLibraryToken(user, update)
-		case strings.HasPrefix(update.Message.Text, s.COMMAND_GET_SOURCES):
-			r, err = h.reactGetSources(user, update)
-		default:
-			r, err = h.reactDefault(user, update)
-		}
-
-		if err != nil {
-			_, err = b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: update.Message.Chat.ID,
-				Text:   s.InternalServerErr,
-			})
-			h.l.Error().Err(err).Msg("sending internal server error message")
-			return
-		}
+	switch {
+	case userCreated:
+		r, err = h.reactNewUser(user, update)
+	case user.State == db.UserStateEditingSource:
+		r, err = h.reactStateEditingSource(user, update)
+	case user.State == db.UserStateConfirmingLibraryChange:
+		r, err = h.reactStateConfirmingLibraryChange(user, update)
+	case update.Message.Text == s.COMMAND_START:
+		r, err = h.reactAlreadyJoinedStart(user, update)
+	case strings.HasPrefix(update.Message.Text, s.COMMAND_SET_ACTIVE_SOURCE):
+		r, err = h.reactSetActiveSource(user, update)
+	case strings.HasPrefix(update.Message.Text, s.COMMAND_DEACTIVATE_SOURCE):
+		r, err = h.reactDeactivateSource(user, update)
+	case strings.HasPrefix(update.Message.Text, s.COMMAND_GET_OUTPUTS):
+		r, err = h.reactGetOutputs(user, update)
+	case strings.HasPrefix(update.Message.Text, s.COMMAND_GET_LIBRARY_TOKEN):
+		r, err = h.reactGetLibraryToken(user, update)
+	case strings.HasPrefix(update.Message.Text, s.COMMAND_SET_LIBRARY_TOKEN):
+		r, err = h.reactSetLibraryToken(user, update)
+	case strings.HasPrefix(update.Message.Text, s.COMMAND_GET_SOURCES):
+		r, err = h.reactGetSources(user, update)
+	default:
+		r, err = h.reactDefault(user, update)
 	}
 
-	if err = r.Do(ctx, b); err != nil {
+	if err != nil {
 		_, err = b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: update.Message.Chat.ID,
 			Text:   s.InternalServerErr,
 		})
-		h.l.Error().Err(err).Msg("sending reaction messages")
+		h.l.Error().Err(err).Msg("sending internal server error message")
+		return
+	}
+
+	if err = r.Do(ctx, b); err != nil {
+		h.l.Error().Err(err).Msg("sending messages")
+		_, err = b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: update.Message.Chat.ID,
+			Text:   s.InternalServerErr,
+		})
+		h.l.Error().Err(err).Msg("sending internal server error message")
 		return
 	}
 }
@@ -393,15 +400,17 @@ func (h Handlers) reactStateConfirmingLibraryChange(user *db.User, update *model
 			if err != nil {
 				return u.Reaction{}, err
 			}
-
 		} else if stateData.Mode == db.ChangeLibraryMergeMode {
 			err = h.db.MergeUserCurrentLibraryAndMigrateTo(user.ID, user.LibraryID, stateData.LibraryID)
 			if err != nil {
 				return u.Reaction{}, err
 			}
-
 		} else {
 			return u.Reaction{}, fmt.Errorf("unknown change library mode: '%s' ", stateData.Mode)
+		}
+
+		if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
+			return u.Reaction{}, fmt.Errorf("setting user state normal: %w", err)
 		}
 
 		return u.ReplyReaction(update.Message, s.LibraryChangedSuccessfully), nil
@@ -648,7 +657,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 					if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
 						return u.Reaction{}, err
 					}
-					return u.TextReaction(update.Message.Chat.ID, s.LibraryNoLongerExistsOPCancled), nil
+					return u.TextReaction(user.ChatID, s.LibraryNoLongerExistsOPCancled), nil
 				}
 				return u.Reaction{}, err
 			}
@@ -657,7 +666,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 				if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
 					return u.Reaction{}, err
 				}
-				return u.TextReaction(update.Message.Chat.ID, s.LibraryTokenExpired), nil
+				return u.TextReaction(user.ChatID, s.LibraryTokenExpired), nil
 			}
 
 			mode := db.ChangeLibraryMergeMode
@@ -671,7 +680,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 			}
 
 			text := s.ConfirmLibraryChange(s.ConfirmLibraryChangeYesAnswer, s.ConfirmLibraryChangeCancelAnswer)
-			return u.TextReaction(update.Message.Chat.ID, text), nil
+			return u.TextReaction(user.ChatID, text), nil
 		}
 	}
 
