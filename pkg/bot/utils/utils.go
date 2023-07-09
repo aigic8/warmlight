@@ -254,15 +254,15 @@ func SourcesReplyMarkup(sources []db.Source, firstPage, lastPage bool) models.In
 	lastSourceID := sources[len(sources)-1].ID
 	prevPageCallbackData, nextPageCallbackData := MakeSourceKeyboardPagesCallbacks(firstSourceID, lastSourceID)
 
-	if firstPage {
-		inlineKeyboard = append(inlineKeyboard, []models.InlineKeyboardButton{{Text: "➡️", CallbackData: nextPageCallbackData}})
-	} else if lastPage {
-		inlineKeyboard = append(inlineKeyboard, []models.InlineKeyboardButton{{Text: "⬅️", CallbackData: prevPageCallbackData}})
-	} else {
+	if !firstPage && !lastPage {
 		inlineKeyboard = append(inlineKeyboard, []models.InlineKeyboardButton{
 			{Text: "⬅️", CallbackData: prevPageCallbackData},
 			{Text: "➡️", CallbackData: nextPageCallbackData},
 		})
+	} else if !firstPage {
+		inlineKeyboard = append(inlineKeyboard, []models.InlineKeyboardButton{{Text: "⬅️", CallbackData: prevPageCallbackData}})
+	} else if !lastPage {
+		inlineKeyboard = append(inlineKeyboard, []models.InlineKeyboardButton{{Text: "➡️", CallbackData: nextPageCallbackData}})
 	}
 
 	return models.InlineKeyboardMarkup{InlineKeyboard: inlineKeyboard}
