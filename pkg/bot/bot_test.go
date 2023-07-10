@@ -384,8 +384,8 @@ func TestReactSetActiveSource(t *testing.T) {
 	testCases := []reactSetActiveSourceTestCase{
 		{Name: "normal", Text: strs.COMMAND_SET_ACTIVE_SOURCE + " The social animal, 20", Reply: strs.ActiveSourceIsSet("The social animal", 20)},
 		{Name: "withoutTimeout", Text: strs.COMMAND_SET_ACTIVE_SOURCE + " The social animal", Reply: strs.ActiveSourceIsSet("The social animal", TEST_DEFAULT_ACTIVE_SOURCE_TIMEOUT_MINS)},
-		{Name: "malformed", Text: strs.COMMAND_SET_ACTIVE_SOURCE + " The, social, animal", Reply: strs.MalformedSetActiveSource},
-		{Name: "empty", Text: strs.COMMAND_SET_ACTIVE_SOURCE, Reply: strs.MalformedSetActiveSource},
+		{Name: "malformed", Text: strs.COMMAND_SET_ACTIVE_SOURCE + " The, social, animal", Reply: strs.MalformedSetActiveSource(TEST_DEFAULT_ACTIVE_SOURCE_TIMEOUT_MINS)},
+		{Name: "empty", Text: strs.COMMAND_SET_ACTIVE_SOURCE, Reply: strs.MalformedSetActiveSource(TEST_DEFAULT_ACTIVE_SOURCE_TIMEOUT_MINS)},
 		{Name: "sourceDoesNotExist", Text: strs.COMMAND_SET_ACTIVE_SOURCE + " Elliot Aronson", Reply: strs.SourceDoesNotExist("Elliot Aronson")},
 	}
 

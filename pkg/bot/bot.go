@@ -279,7 +279,7 @@ func (h Handlers) reactStateEditingSource(user *db.User, update *models.Update) 
 		if _, err := h.db.SetUserStateNormal(user.ID); err != nil {
 			return u.Reaction{}, err
 		}
-		return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, s.CanceledEditMode)}}, nil
+		return u.Reaction{Messages: []bot.SendMessageParams{u.TextReplyToMessage(update.Message, s.OperationCanceled)}}, nil
 	}
 
 	var stateData db.StateEditingSourceData
@@ -389,7 +389,7 @@ func (h Handlers) reactStateConfirmingLibraryChange(user *db.User, update *model
 				if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
 					return u.Reaction{}, err
 				}
-				return u.TextReaction(update.Message.Chat.ID, s.LibraryNoLongerExistsOPCancled), nil
+				return u.TextReaction(update.Message.Chat.ID, s.LibraryNoLongerExistsOPCanceled), nil
 			}
 
 			return u.Reaction{}, err
@@ -482,7 +482,7 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 
 	argsLen := len(args)
 
-	malformedReaction := u.ReplyReaction(update.Message, s.MalformedSetActiveSource)
+	malformedReaction := u.ReplyReaction(update.Message, s.MalformedSetActiveSource(h.defaultActiveSourceTimeoutMins))
 	if text == "" || argsLen > 2 {
 		return malformedReaction, nil
 	}
@@ -657,7 +657,7 @@ func (h Handlers) reactCallbackQuery(update *models.Update) (u.Reaction, error) 
 					if _, err = h.db.SetUserStateNormal(user.ID); err != nil {
 						return u.Reaction{}, err
 					}
-					return u.TextReaction(user.ChatID, s.LibraryNoLongerExistsOPCancled), nil
+					return u.TextReaction(user.ChatID, s.LibraryNoLongerExistsOPCanceled), nil
 				}
 				return u.Reaction{}, err
 			}
