@@ -64,6 +64,9 @@ services:
     volumes:
       - ./certs:/app/certs # directory of certificates
       - ./log/warmlight:/app/log # directory you want to put logs in
+      - ./config/warmlight/config:/app/config
+    enviroment:
+      -CONFIG_PATH=/app/config/warmlight.toml # path of config file
   db:
     image: postgres:alpine
     restart: always
