@@ -31,7 +31,7 @@ func getLoggerOutput(dev bool, logPath string) (io.Writer, error) {
 	}
 
 	logDir := path.Dir(logPath)
-	// TODO use a better permission for log path
+	// TODO: use a better permission for log path
 	if err := os.MkdirAll(logDir, 0777); err != nil {
 		return nil, err
 	}

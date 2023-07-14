@@ -5,13 +5,14 @@ url = "postgresql://postgres:postgres@localhost:1616/warmlight" # database URL, 
 timeoutMs = 3000 # database connection timeout
 
 [bot]
-token = "..." # telegram bot token
+token = "..." # telegram bot token, SECRET
 webhookUrl = "https://mysite.com/webhook.url" # URL to set webhook for in telegram
 certFile = "certfile.cert" # path to TLS certificate file
-privKeyFile = "priv.key" # path to TLS private key
+privKeyFile = "priv.key" # path to TLS private key, SECRET
 logPath = "log/warmlight.log" # log file path, if you are using docker, use volumes to be able to see logs from outside
 isDev = true
 defaultActiveSourceTimeoutMins = 60 # default source expiration time if not passed by user
 deactivatorIntervalMins = 10 # interval in which sources are checked for expired sources
+libraryTokenExpireMins = 30 # optional, how long each library token will live in minuts. default is 30
 port = 443 # also change Dockerfile if you want to change port
 

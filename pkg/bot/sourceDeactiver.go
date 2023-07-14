@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/aigic8/warmlight/internal/db"
+	"github.com/aigic8/warmlight/pkg/bot/strs"
 	u "github.com/aigic8/warmlight/pkg/bot/utils"
 	"github.com/go-co-op/gocron"
 	"github.com/go-telegram/bot"
@@ -43,7 +44,7 @@ func (sd *SourceDeactiver) deactivateExpiredSources() {
 	for _, user := range users {
 		_, err := sd.b.SendMessage(sd.ctx, &bot.SendMessageParams{
 			ChatID: user.ChatID,
-			Text:   strActiveSourceExpired,
+			Text:   strs.ActiveSourceExpired,
 		})
 
 		if err != nil {

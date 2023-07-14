@@ -10,7 +10,6 @@ ADD ./internal /app/internal
 ADD ./pkg /app/pkg
 COPY ./go.mod /app/go.mod
 COPY ./go.sum /app/go.sum
-COPY ./warmlight.toml /app/warmlight.toml
 
 # generate sqlc files
 RUN chmod +x /app/internal/db/sqlc-alpine.sh
@@ -22,4 +21,5 @@ RUN go build /app/cmd/warmlight/warmlight.go
 
 # change port if you have changed port in warmlight.toml
 EXPOSE 443
-CMD [ "/app/warmlight" ]
+# using a raw string instead of array because of https://stackoverflow.com/a/24194340/19217994
+CMD /app/warmlight -c ${CONFIG_FILE}

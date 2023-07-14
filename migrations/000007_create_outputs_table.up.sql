@@ -8,3 +8,5 @@ CREATE TABLE IF NOT EXISTS outputs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX ON outputs (user_id, chat_id);
