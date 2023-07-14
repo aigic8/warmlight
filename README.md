@@ -39,7 +39,18 @@ To be able to use this bot, you need:
 - a domain name (technically it is not necessary, so in future versions it may not be needed)
 
 ### Creating a bot in Telegram
-First you need to create a bot using [Bot Father](t.me/botfather). You need to get your bot token and make save it somewhere safe. Make sure also to activate inline bot functionality for bot in Bot Father. 
+First you need to create a bot using [Bot Father](t.me/botfather). You need to get your bot token and make save it somewhere safe. Make sure also to activate inline bot functionality for bot in Bot Father.
+
+You can use this text for setting bot commands:
+```text
+getsources - view and edit sources
+setactivesource - set an active source
+deactivatesource - deactivate current active source
+getoutputs - view and edit outputs
+getlibtoken - get current library token
+setlibtoken - change library to a library with token
+help - bot help
+```
 
 ### Generating SSL certificate files
 You need to generate SSL certificate and private key file and pass them to the bot configuration. For that purpose you can use [CertBot](https://certbot.eff.org/) or [acme.sh](acme.sh)
