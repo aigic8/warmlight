@@ -12,6 +12,7 @@ import (
 
 // COMMANDS ///////////////////////////////////////////////////////
 const COMMAND_START = "/start"
+const COMMAND_HELP = "/help"
 const COMMAND_SET_ACTIVE_SOURCE = "/setactivesource"
 const COMMAND_GET_OUTPUTS = "/getoutputs"
 const COMMAND_DEACTIVATE_SOURCE = "/deactivatesource"
@@ -23,6 +24,28 @@ const COMMAND_SET_LIBRARY_TOKEN = "/setlibtoken"
 const InternalServerErr = "❌ Something unexpected happened.Text me (@aigic8) if the issue persists."
 const QuoteAdded = "✅ Quote added"
 const OperationCanceled = "✅ Operation canceled"
+const YouAreAlreadyJoined = "Joining this bot is like seeing a good movie for the first time, you can only experience it for once. 😌"
+const YourDataIsLost = "Looks like your data is lost.\nFeel free to text me (@aigic8) if you've lost any valuable information."
+
+var Help = fmt.Sprintf(`WarmLight Bot
+This bot is created to help you saving your quotes. You can add a quote simply by sending a message in this format:
+We should forget about small efficiencies, say about 97%% of the time: premature optimization is the root of all evil.
+sources: Donald Ervin Knuth
+#programming #optimization 
+There are several important commands in this bot:
+%s you can search your sources, it will return results and you can view their info and also edit them. For example:
+%s Animal Farm
+will search for a source with name of "Animal Farm". Also, you can use source type specifier to search more specifically for source. For example:
+%s Animal Farm @book
+Will only search for books with name "Animal Farm".
+%s will activate a source for certain amount of time. During that time period every quote you send will automatically be added to that source. For example:
+%s Animal Farm, 20
+Will set source "Animal Farm" as active source for "20 minutes". The time period is optional, for example:
+%s Animal Farm
+This command will set source "Animal Farm" as active source for default timeout (60 minutes)
+%s will show you your outputs. Outputs are Telegram channels when you send a new quote, your quotes will be forwarded to there. You can activate and deactivate your outputs with this command.
+%s and %s are used to share a quote library between multiple accounts. The owner of the library will use command %s to get his library token. The second account will use command %s to set library token received by the owner.
+`, COMMAND_GET_SOURCES, COMMAND_GET_SOURCES, COMMAND_GET_SOURCES, COMMAND_SET_ACTIVE_SOURCE, COMMAND_SET_ACTIVE_SOURCE, COMMAND_SET_ACTIVE_SOURCE, COMMAND_GET_OUTPUTS, COMMAND_GET_LIBRARY_TOKEN, COMMAND_SET_LIBRARY_TOKEN, COMMAND_GET_LIBRARY_TOKEN, COMMAND_SET_LIBRARY_TOKEN)
 
 func WelcomeToBot(firstName string) string {
 	return fmt.Sprintf(`👋 Welcome %s.
@@ -35,15 +58,15 @@ http://github.com/aigic8/warmlight
 Feel free to text me if you have any questions/ideas for the bot. (@aigic8)`, firstName)
 }
 
-func YouAreAlreadyJoined(firstName string) string {
-	return "Joining this bot is like seeing a good movie for the first time, you can only experience it for once. 😌"
-}
-
-func YourDataIsLost(firstName string) string {
-	return "Looks like your data is lost.\nFeel free to text me (@aigic8) if you've lost any valuable information."
-}
-
 // SOURCES ///////////////////////////////////////////////////////
+const SourceTimeoutShouldBeGreaterThanZero = "Active source timeout should greater than zero. 🧐"
+const ActiveSourceExpired = "✅ Active source expired."
+const QuoteAddedButFailedToPublish = "❌ Quote is added, but failed to publish it to outputs."
+const NoActiveSource = "Currently you have no active source. 😊"
+const OnlyOneSourceKindFilterIsAllowed = "You can only filter sources based on one source kind. 🧐"
+const SourceNoLongerExists = "❌ Source no longer exists."
+const GoingBackToNormalMode = "❌ There was an error in operation. Operation is canceled and you went back to normal state."
+
 func MalformedSetActiveSource(defaultTimeMins int) string {
 	return fmt.Sprintf(`Couldn't understand what you mean. 🤔
 To use %s properly you should follow this format:
@@ -56,14 +79,6 @@ The time parameter is optional. So if you send:
 This will make "Animal Farm" source active for a default duration, which is %d minutes.
 `, COMMAND_SET_ACTIVE_SOURCE, COMMAND_SET_ACTIVE_SOURCE, COMMAND_SET_ACTIVE_SOURCE, COMMAND_SET_ACTIVE_SOURCE, defaultTimeMins)
 }
-
-const SourceTimeoutShouldBeGreaterThanZero = "Active source timeout should greater than zero. 🧐"
-const ActiveSourceExpired = "✅ Active source expired."
-const QuoteAddedButFailedToPublish = "❌ Quote is added, but failed to publish it to outputs."
-const NoActiveSource = "Currently you have no active source. 😊"
-const OnlyOneSourceKindFilterIsAllowed = "You can only filter sources based on one source kind. 🧐"
-const SourceNoLongerExists = "❌ Source no longer exists."
-const GoingBackToNormalMode = "❌ There was an error in operation. Operation is canceled and you went back to normal state."
 
 var MalformedEditSourceText = fmt.Sprintf(`Couldn't understand what you mean. 🤔
 To edit the source properly, you should use this format:
@@ -240,11 +255,6 @@ func Quote(q *utils.Quote) string {
 
 // LIBRARIES /////////////////////////////////////////////////////
 const OnlyTheOwnerCanAddNewUsers = "❌ Only the owner of library can add new users. (the first person who have created the library)"
-
-var MalformedLibraryToken = fmt.Sprintf(`Couldn't understand what you mean. 🤔
-To use '%s' command properly, use it in this format:
-%s [libraryToken]`, COMMAND_SET_LIBRARY_TOKEN, COMMAND_SET_LIBRARY_TOKEN)
-
 const NoLibraryExistsWithToken = "❌ Library token is not valid."
 const MergeOrDeleteCurrentLibraryData = `Do you want merge your current data or delete it?
 If you merge, you current data will be added to the library your joining.
@@ -259,6 +269,10 @@ const LibraryChangedSuccessfully = "✅ Library changed successfully."
 func YourLibraryToken(token string, lifetimeStr string) string {
 	return "✅ Your library token is '" + token + "'. It will expire in " + lifetimeStr + ".\nOnly share it with PEOPLE YOU TRUST."
 }
+
+var MalformedLibraryToken = fmt.Sprintf(`Couldn't understand what you mean. 🤔
+To use '%s' command properly, use it in this format:
+%s [libraryToken]`, COMMAND_SET_LIBRARY_TOKEN, COMMAND_SET_LIBRARY_TOKEN)
 
 func ConfirmLibraryChange(YesAnswer, NoAnswer string) string {
 	return fmt.Sprintf("Are you sure you want to join this library?\nThis action is IRREVERSIBLE. If yes send '%s'. Send '%s' to cancel.", YesAnswer, NoAnswer)

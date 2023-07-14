@@ -1,6 +1,29 @@
 # WarmLight
 WarmLight is a Telegram bot for creating and using databases of quotes.
 
+## Usage
+
+```text
+WarmLight Bot
+This bot is created to help you saving your quotes. You can add a quote simply by sending a message in this format:
+We should forget about small efficiencies, say about 97% of the time: premature optimization is the root of all evil.
+sources: Donald Ervin Knuth
+#programming #optimization 
+There are several important commands in this bot:
+/getsources you can search your sources, it will return results and you can view their info and also edit them. For example:
+/getsources Animal Farm
+will search for a source with name of "Animal Farm". Also, you can use source type specifier to search more specifically for source. For example:
+/getsources Animal Farm @book
+Will only search for books with name "Animal Farm".
+/setactivesource will activate a source for certain amount of time. During that time period, every quote you send will automatically be added to that source. For example:
+/setactivesource Animal Farm, 20
+Will set source "Animal Farm" as active source for "20 minutes". The time period is optional, for example:
+/setactivesource Animal Farm
+This command will set source "Animal Farm" as active source for default timeout (60 minutes)
+/getoutputs will show you your outputs. Outputs are Telegram channels when you send a new quote, your quotes will be forwarded to there. You can activate and deactivate your outputs with this command.
+/getlibtoken and /setlibtoken are used to share a quote library between multiple accounts. The owner of the library will use command /getlibtoken to get his library token. The second account will use command /setlibtoken to set library token received by the owner.
+```
+
 ## Installation
 - [What you need](#what-you-need)
 - [Creating a bot in Telegram](#creating-a-bot-in-telegram)
@@ -77,7 +100,6 @@ Migrations are handled using [migrate](https://github.com/golang-migrate/migrate
 chmod +x ./migrate.sh # make migrate.sh executable
 DB_URL=postgresql://postgres:password@localhost:5432/warmlight?sslmode=disable ./migrate.sh
 ```
-
 
 
 

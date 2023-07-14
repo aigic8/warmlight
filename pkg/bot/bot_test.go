@@ -40,7 +40,7 @@ func TestReactNewUser(t *testing.T) {
 
 	testCases := []reactNewUserTestCase{
 		{Name: "normal", UserText: strs.COMMAND_START, ReplyText: strs.WelcomeToBot(firstName)},
-		{Name: "lostData", UserText: "bla", ReplyText: strs.YourDataIsLost(firstName)},
+		{Name: "lostData", UserText: "bla", ReplyText: strs.YourDataIsLost},
 	}
 
 	for _, tc := range testCases {

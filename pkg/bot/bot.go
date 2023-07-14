@@ -177,6 +177,8 @@ func (h Handlers) updateHandler(ctx context.Context, b *bot.Bot, update *models.
 		r, err = h.reactStateConfirmingLibraryChange(user, update)
 	case update.Message.Text == s.COMMAND_START:
 		r, err = h.reactAlreadyJoinedStart(user, update)
+	case update.Message.Text == s.COMMAND_HELP:
+		r, err = h.reactHelp(user, update)
 	case strings.HasPrefix(update.Message.Text, s.COMMAND_SET_ACTIVE_SOURCE):
 		r, err = h.reactSetActiveSource(user, update)
 	case strings.HasPrefix(update.Message.Text, s.COMMAND_DEACTIVATE_SOURCE):
@@ -267,7 +269,7 @@ func (h Handlers) reactNewUser(user *db.User, update *models.Update) (u.Reaction
 	if update.Message.Text == s.COMMAND_START {
 		messageText = s.WelcomeToBot(user.FirstName)
 	} else {
-		messageText = s.YourDataIsLost(user.FirstName)
+		messageText = s.YourDataIsLost
 	}
 
 	return u.ReplyReaction(update.Message, messageText), nil
@@ -427,7 +429,7 @@ func (h Handlers) reactStateConfirmingLibraryChange(user *db.User, update *model
 }
 
 func (h Handlers) reactAlreadyJoinedStart(user *db.User, update *models.Update) (u.Reaction, error) {
-	return u.ReplyReaction(update.Message, s.YouAreAlreadyJoined(user.FirstName)), nil
+	return u.ReplyReaction(update.Message, s.YouAreAlreadyJoined), nil
 }
 
 func (h Handlers) reactGetSources(user *db.User, update *models.Update) (u.Reaction, error) {
@@ -516,6 +518,10 @@ func (h Handlers) reactSetActiveSource(user *db.User, update *models.Update) (u.
 	}
 
 	return u.ReplyReaction(update.Message, s.ActiveSourceIsSet(args[0], activeSourceTimeoutInt)), nil
+}
+
+func (h Handlers) reactHelp(user *db.User, update *models.Update) (u.Reaction, error) {
+	return u.TextReaction(update.Message.Chat.ID, s.Help), nil
 }
 
 func (h Handlers) reactGetOutputs(user *db.User, update *models.Update) (u.Reaction, error) {
