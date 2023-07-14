@@ -18,6 +18,7 @@ const DEFAULT_CONFIG_PATH = "warmlight.toml"
 func main() {
 	var rawConfigPath string
 	flag.StringVar(&rawConfigPath, "c", DEFAULT_CONFIG_PATH, fmt.Sprintf("config file path, default value is '%s'", DEFAULT_CONFIG_PATH))
+	flag.Parse()
 
 	cwd, err := os.Getwd()
 	if err != nil {
