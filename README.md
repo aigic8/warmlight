@@ -105,9 +105,6 @@ Afterwards, you need [run migrations](#running-migrations) and finally run the a
 docker compose up -d warmlight
 ```
 
-### Using without docker
-This part of documentation is still not written.
-
 ### Running migrations
 Migrations are handled using [migrate](https://github.com/golang-migrate/migrate/). For simplicity, I've created a bash script. After creating a database, you can run migrations using this command:
 ```bash
